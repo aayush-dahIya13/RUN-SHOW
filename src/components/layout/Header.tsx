@@ -1,14 +1,32 @@
 'use client';
 
-import { motion } from 'motion/react';
-import { Bell, User } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
+import { useAuthStore } from '@/lib/auth-store';
 import { Button } from '@/components/ui/Button';
 import { EventCountdown, EventDateDisplay } from './EventCountdown';
 
 export function Header() {
   const { notifications, markNotificationRead, event } = useDashboardStore();
+  const { user, logout } = useAuthStore();
   const unreadCount = notifications.filter(n => !n.read).length;
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const getRoleLabel = (role: string) => {
+    const labels: Record<string, string> = {
+      organizer: 'Organizer',
+      'sub-organizer': 'Sub-organizer',
+      participant: 'Participant',
+      leadership: 'Leadership',
+      marketing: 'Marketing',
+      partnerships: 'Partnerships',
+      operations: 'Operations',
+      programme: 'Programme',
+    };
+    return labels[role] || role;
+  };
 
   return (
     <motion.header
@@ -82,9 +100,53 @@ export function Header() {
                 </motion.div>
               )}
             </div>
-            <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-slate-900/50 border border-slate-800 rounded-lg">
-              <User className="w-4 h-4 text-slate-400" aria-hidden="true" />
-              <span className="text-sm text-slate-300 font-medium">Organizer</span>
+
+            {/* User Menu */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="hidden sm:flex items-center gap-2 px-3 py-2 bg-slate-900/50 border border-slate-800 rounded-lg"
+                aria-expanded={showUserMenu}
+                aria-haspopup="true"
+              >
+                <User className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                <span className="text-sm text-slate-300 font-medium">
+                  {user ? getRoleLabel(user.role) : 'Organizer'}
+                </span>
+                <ChevronDown className="w-4 h-4 text-slate-400" aria-hidden="true" />
+              </Button>
+
+              <AnimatePresence>
+                {showUserMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-xl p-2"
+                    role="menu"
+                  >
+                    {user && (
+                      <div className="px-3 py-2 border-b border-slate-800">
+                        <p className="text-sm font-medium text-slate-100 truncate">{user.email}</p>
+                        <p className="text-xs text-slate-400 capitalize">{getRoleLabel(user.role)}</p>
+                        {user.teamResponsibility && (
+                          <p className="text-xs text-cyan-400 mt-1">{user.teamResponsibility}</p>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={logout}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-slate-100 hover:bg-slate-800/50 transition-colors"
+                      role="menuitem"
+                    >
+                      <LogOut className="w-4 h-4" aria-hidden="true" />
+                      Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
