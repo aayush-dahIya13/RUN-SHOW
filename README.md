@@ -2,7 +2,7 @@
 
 Intelligent Event Command Centre for the CodeX 3.0 Hackathon — Member 1's dashboard implementation.
 
-## Overview
+
 
 EventPilot AI is a premium, futuristic SaaS event operations command centre built for hackathon judges and real-world event organizers. This dashboard provides real-time visibility into event health, registration performance, risk management, AI-powered recommendations, and task tracking.
 
