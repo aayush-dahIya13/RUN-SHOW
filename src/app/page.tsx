@@ -1,6 +1,6 @@
 'use client';
 
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { AuthPage } from '@/components/auth/AuthPage';
 import { motion } from 'motion/react';
 
 export default function Home() {
@@ -10,7 +10,7 @@ export default function Home() {
       animate={{ opacity: 1 }}
       className="min-h-screen"
     >
-      <DashboardLayout />
+      <AuthPage />
     </motion.div>
   );
 }
