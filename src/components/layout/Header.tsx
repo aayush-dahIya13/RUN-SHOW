@@ -3,12 +3,11 @@
 import { motion } from 'motion/react';
 import { Bell, User } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
-import { DEMO_EVENT } from '@/lib/demo-data';
 import { Button } from '@/components/ui/Button';
 import { EventCountdown, EventDateDisplay } from './EventCountdown';
 
 export function Header() {
-  const { notifications, markNotificationRead } = useDashboardStore();
+  const { notifications, markNotificationRead, event } = useDashboardStore();
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -23,7 +22,7 @@ export function Header() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-100 tracking-tight">{DEMO_EVENT.name}</h1>
+              <h1 className="text-2xl font-bold text-slate-100 tracking-tight">{event.name}</h1>
               <EventDateDisplay />
             </div>
             <EventCountdown />

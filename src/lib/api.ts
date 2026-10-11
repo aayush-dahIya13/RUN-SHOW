@@ -66,7 +66,12 @@ export const api = {
 
   async createEvent(event: Omit<Event, 'id' | 'daysRemaining'>): Promise<Event> {
     if (USE_API) return fetchJson<Event>('/events', { method: 'POST', body: JSON.stringify(event) });
-    return { ...event, id: `evt-${Date.now()}`, daysRemaining: 0 };
+    const today = new Date();
+    const eventDate = new Date(event.date);
+    today.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
+    const daysRemaining = Math.max(0, Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    return { ...event, id: `evt-${Date.now()}`, daysRemaining };
   },
 
   async getMetrics(eventId: string): Promise<KPIData> {

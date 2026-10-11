@@ -12,9 +12,11 @@ import { RiskCentre } from '@/components/risks/RiskCentre';
 import { Recommendations } from '@/components/recommendations/Recommendations';
 import { Tasks } from '@/components/tasks/Tasks';
 import { TaskDrawerContent } from '@/components/tasks/TaskDrawer';
+import { EventSetupWizard } from '@/components/event-setup/EventSetupWizard';
 import { useDashboardStore } from '@/lib/dashboard-state';
 
 const VIEW_COMPONENTS = {
+  setup: () => <EventSetupWizard />,
   overview: () => (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -70,15 +72,17 @@ export function DashboardLayout() {
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
-            {/* KPI Cards - shown on all views except when explicitly hidden */}
-            <div className="hidden lg:block" aria-hidden="true">
-              <KPICards />
-            </div>
-            <div className="lg:hidden">
-              <KPICards />
-            </div>
+            {selectedView !== 'setup' && (
+              <>
+                <div className="hidden lg:block" aria-hidden="true">
+                  <KPICards />
+                </div>
+                <div className="lg:hidden">
+                  <KPICards />
+                </div>
+              </>
+            )}
 
-            {/* Main content */}
             <ViewComponent />
           </motion.div>
         </main>

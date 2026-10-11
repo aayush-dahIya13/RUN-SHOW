@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CheckSquare, Clock, User, Flag, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { STATUS_COLORS } from '@/lib/demo-data';
-import { Task, TaskStatus } from '@/lib/types';
+import { Risk, Role, Task, TaskStatus } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Input';
@@ -23,6 +23,48 @@ const STATUS_ICONS = {
   completed: CheckCircle,
   blocked: XCircle,
 };
+
+const ROLE_WORKFLOW_COPY: Record<Role, string> = {
+  marketing: 'Campaigns, registrations, conversion, and content tasks',
+  partnerships: 'Sponsors, partner confirmations, and follow-ups',
+  operations: 'Venue, catering, equipment, staffing, and logistics',
+  programme: 'Speakers, mentors, schedule, and session readiness',
+  leadership: 'Overall readiness, critical risks, and escalations',
+};
+
+function RoleWorkflowSummary({ role, tasks, risks }: { role: Role; tasks: Task[]; risks: Risk[] }) {
+  const roleTasks = role === 'leadership' ? tasks : tasks.filter(task => task.assignee === role);
+  const roleRisks = role === 'leadership' ? risks : risks.filter(risk => risk.owner === role);
+  const urgentTasks = roleTasks.filter(task => task.priority === 'urgent' || task.priority === 'high').length;
+  const blockedTasks = roleTasks.filter(task => task.status === 'blocked').length;
+  const openRisks = roleRisks.filter(risk => risk.status === 'open' || risk.status === 'in-progress').length;
+
+  return (
+    <div className="mb-4 rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-100">{role === 'leadership' ? 'Leadership Workflow' : `${role.charAt(0).toUpperCase()}${role.slice(1)} Workflow`}</p>
+          <p className="text-sm text-slate-400 mt-1">{ROLE_WORKFLOW_COPY[role]}</p>
+          <p className="text-xs text-slate-500 mt-2">Prototype role switching only. Authentication and real permissions are not implemented.</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center min-w-[260px]">
+          <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2">
+            <p className="text-lg font-semibold text-slate-100">{roleTasks.length}</p>
+            <p className="text-xs text-slate-500">Tasks</p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2">
+            <p className="text-lg font-semibold text-orange-300">{urgentTasks}</p>
+            <p className="text-xs text-slate-500">Priority</p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2">
+            <p className="text-lg font-semibold text-red-300">{blockedTasks + openRisks}</p>
+            <p className="text-xs text-slate-500">Escalations</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface TaskCardProps {
   task: Task;
@@ -90,7 +132,7 @@ function TaskCard({ task, index, onClick, onStatusChange }: TaskCardProps) {
 }
 
 export function Tasks() {
-  const { tasks, selectedRole, completeTask, openDrawer, updateTaskStatus } = useDashboardStore();
+  const { tasks, risks, selectedRole, completeTask, openDrawer, updateTaskStatus } = useDashboardStore();
   const [statusFilter, setStatusFilter] = React.useState<TaskStatus | 'all'>('all');
 
   const filteredTasks = tasks.filter(task => {
@@ -129,6 +171,7 @@ export function Tasks() {
         </div>
       </CardHeader>
       <CardContent className="p-6 pt-0 flex-1 overflow-y-auto">
+        <RoleWorkflowSummary role={selectedRole} tasks={tasks} risks={risks} />
         <AnimatePresence mode="popLayout">
           {filteredTasks.length > 0 ? (
             <div className="space-y-3" role="list" aria-label="Tasks">

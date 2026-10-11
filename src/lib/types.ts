@@ -11,13 +11,23 @@ export type RecommendationPriority = 'urgent' | 'high' | 'medium' | 'low';
 export interface Event {
   id: string;
   name: string;
+  type?: string;
   date: string;
+  startDate?: string;
+  endDate?: string;
   targetRegistrations: number;
   currentRegistrations: number;
   partnerConfirmations: number;
   totalPartners: number;
   venueConfirmed: boolean;
   daysRemaining: number;
+  audience?: string;
+  format?: 'in-person' | 'virtual' | 'hybrid';
+  venue?: string;
+  objectives?: string[];
+  successMetrics?: string[];
+  budget?: number;
+  operationalRequirements?: string;
 }
 
 export interface Risk {
@@ -91,7 +101,7 @@ export interface OutreachDataPoint {
 
 export interface DashboardState {
   selectedRole: Role;
-  selectedView: 'overview' | 'event-health' | 'recommendations' | 'tasks' | 'partners' | 'operations';
+  selectedView: 'setup' | 'overview' | 'event-health' | 'recommendations' | 'tasks' | 'partners' | 'operations';
   risks: Risk[];
   recommendations: Recommendation[];
   tasks: Task[];
@@ -119,4 +129,49 @@ export interface Partner {
   status: 'confirmed' | 'pending';
   contact: string;
   deadline: string;
+}
+
+export interface EventSetupFormData {
+  name: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  registrationDeadline: string;
+  partnerDeadline: string;
+  contentDeadline: string;
+  audience: string;
+  targetRegistrations: number;
+  currentRegistrations: number;
+  venue: string;
+  format: 'in-person' | 'virtual' | 'hybrid';
+  objectives: string;
+  successMetrics: string;
+  budget?: number;
+  operationalRequirements: string;
+  expectedPartners: number;
+}
+
+export interface EventMilestone {
+  id: string;
+  title: string;
+  description: string;
+  owner: Role;
+  deadline: string;
+  priority: RecommendationPriority;
+}
+
+export interface EventPlan {
+  id: string;
+  eventDraft: EventSetupFormData;
+  milestones: EventMilestone[];
+  tasks: Task[];
+  risks: Risk[];
+  successMetrics: string[];
+  outreachTargets: {
+    channel: string;
+    target: number;
+    owner: Role;
+  }[];
+  generatedAt: string;
+  generator: 'deterministic';
 }

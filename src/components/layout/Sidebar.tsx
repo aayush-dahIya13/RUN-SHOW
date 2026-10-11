@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LayoutDashboard, 
+  ClipboardList,
   HeartPulse, 
   Lightbulb, 
   CheckSquare, 
@@ -24,6 +25,7 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
+  { id: 'setup', label: 'Setup Wizard', icon: ClipboardList },
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'event-health', label: 'Event Health', icon: HeartPulse },
   { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },

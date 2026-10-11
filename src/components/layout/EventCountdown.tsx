@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { DEMO_EVENT } from '@/lib/demo-data';
+import { useDashboardStore } from '@/lib/dashboard-state';
 import { Badge } from '@/components/ui/Badge';
 
 export function EventCountdown() {
-  const eventDate = new Date(DEMO_EVENT.date);
+  const event = useDashboardStore(state => state.event);
+  const eventDate = new Date(event.date);
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -41,7 +42,8 @@ export function EventCountdown() {
 }
 
 export function EventDateDisplay() {
-  const eventDate = new Date(DEMO_EVENT.date);
+  const event = useDashboardStore(state => state.event);
+  const eventDate = new Date(event.date);
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {

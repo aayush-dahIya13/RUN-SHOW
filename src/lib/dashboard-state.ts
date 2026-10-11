@@ -2,19 +2,25 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Role, Task, DashboardState, Notification, DrawerState, KPIData, Recommendation, Risk, Event } from './types';
+import { Role, Task, DashboardState, Notification, DrawerState, KPIData, Recommendation, Risk, Event, EventPlan } from './types';
 import { DEMO_EVENT, DEMO_RISKS, DEMO_RECOMMENDATIONS, DEMO_TASKS } from './demo-data';
 import { calculateKPIs, simulateRegistrationOutcome } from './calculations';
 import { generateRecommendations } from './recommendation-rules';
 import { api } from './api';
+import { recommendationsFromPlan } from './event-plan-generator';
 
 interface StoreState extends DashboardState {
   kpis: KPIData;
   drawer: DrawerState;
   event: Event;
   isUsingApi: boolean;
+  generatedPlan: EventPlan | null;
+  isSubmittingEvent: boolean;
+  setupError: string | null;
   setSelectedRole: (role: Role) => void;
   setSelectedView: (view: DashboardState['selectedView']) => void;
+  setGeneratedPlan: (plan: EventPlan | null) => void;
+  confirmEventPlan: (plan: EventPlan) => Promise<Event>;
   openDrawer: (task: Task, type?: DrawerState['type']) => void;
   closeDrawer: () => void;
   completeTask: (taskId: string) => Promise<void>;
@@ -34,6 +40,14 @@ interface StoreState extends DashboardState {
 const initialRisks = [...DEMO_RISKS];
 const initialRecommendations = [...DEMO_RECOMMENDATIONS];
 const initialTasks = [...DEMO_TASKS];
+
+function calculateDaysRemaining(date: string): number {
+  const today = new Date();
+  const eventDate = new Date(date);
+  today.setHours(0, 0, 0, 0);
+  eventDate.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+}
 
 function buildRecommendationMap(recommendations: Recommendation[]): Map<string, Recommendation> {
   const map = new Map<string, Recommendation>();
@@ -126,7 +140,7 @@ export const useDashboardStore = create<StoreState>()(
   persist(
     (set, get) => ({
       selectedRole: 'leadership',
-      selectedView: 'overview',
+      selectedView: 'setup',
       risks: initialRisks,
       recommendations: initialRecommendations,
       tasks: initialTasks,
@@ -135,10 +149,81 @@ export const useDashboardStore = create<StoreState>()(
       drawer: { isOpen: false, task: null, type: 'task' },
       event: { ...DEMO_EVENT },
       isUsingApi: api.isUsingApi(),
+      generatedPlan: null,
+      isSubmittingEvent: false,
+      setupError: null,
 
       setSelectedRole: (role) => set({ selectedRole: role }),
 
       setSelectedView: (view) => set({ selectedView: view }),
+
+      setGeneratedPlan: (plan) => set({ generatedPlan: plan, setupError: null }),
+
+      confirmEventPlan: async (plan) => {
+        if (get().isSubmittingEvent) return get().event;
+        set({ isSubmittingEvent: true, setupError: null });
+
+        try {
+          const draft = plan.eventDraft;
+          const localEvent: Omit<Event, 'id' | 'daysRemaining'> = {
+            name: draft.name,
+            type: draft.type,
+            date: draft.startDate,
+            startDate: draft.startDate,
+            endDate: draft.endDate,
+            targetRegistrations: draft.targetRegistrations,
+            currentRegistrations: draft.currentRegistrations,
+            partnerConfirmations: Math.max(0, Math.floor(draft.expectedPartners * 0.35)),
+            totalPartners: draft.expectedPartners,
+            venueConfirmed: Boolean(draft.venue.trim()),
+            audience: draft.audience,
+            format: draft.format,
+            venue: draft.venue,
+            objectives: draft.objectives.split(/\n|,/).map(item => item.trim()).filter(Boolean),
+            successMetrics: plan.successMetrics,
+            budget: draft.budget,
+            operationalRequirements: draft.operationalRequirements,
+          };
+
+          const createdEvent = get().isUsingApi
+            ? await api.createEvent(localEvent)
+            : await api.createEvent(localEvent);
+
+          const event = {
+            ...createdEvent,
+            daysRemaining: calculateDaysRemaining(createdEvent.date),
+          };
+          const recommendations = recommendationsFromPlan(plan);
+          const kpis = calculateKPIs(event, plan.tasks);
+          const notification: Notification = {
+            id: `notif-${Date.now()}`,
+            message: `${event.name} created and opened in the command centre`,
+            type: 'success',
+            timestamp: new Date().toISOString(),
+            read: false,
+          };
+
+          set({
+            event,
+            tasks: plan.tasks,
+            risks: plan.risks,
+            recommendations,
+            kpis,
+            selectedRole: 'leadership',
+            selectedView: 'overview',
+            generatedPlan: plan,
+            isSubmittingEvent: false,
+            setupError: null,
+            notifications: [notification, ...get().notifications].slice(0, 10),
+          });
+
+          return event;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unable to save event plan';
+          set({ isSubmittingEvent: false, setupError: message });
+          throw error;
+        }
+      },
 
       openDrawer: (task, type = 'task') => set({ drawer: { isOpen: true, task, type } }),
 
@@ -254,7 +339,7 @@ export const useDashboardStore = create<StoreState>()(
         const newKpis = calculateKPIs(DEMO_EVENT, initialTasks);
         set({
           selectedRole: 'leadership',
-          selectedView: 'overview',
+          selectedView: 'setup',
           risks: [...initialRisks],
           recommendations: [...initialRecommendations],
           tasks: [...initialTasks],
@@ -262,6 +347,9 @@ export const useDashboardStore = create<StoreState>()(
           kpis: newKpis,
           drawer: { isOpen: false, task: null, type: 'task' },
           event: { ...DEMO_EVENT },
+          generatedPlan: null,
+          isSubmittingEvent: false,
+          setupError: null,
         });
       },
 
@@ -292,6 +380,7 @@ export const useDashboardStore = create<StoreState>()(
         tasks: state.tasks,
         notifications: state.notifications,
         event: state.event,
+        generatedPlan: state.generatedPlan,
       }),
     }
   )
