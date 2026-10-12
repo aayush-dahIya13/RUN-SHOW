@@ -20,7 +20,7 @@ export function RoleDashboardPlaceholder({ role }: { role: Exclude<DemoRole, 'or
       <main className="min-h-screen bg-[var(--page-bg)] px-5 py-6 text-[var(--text-primary)]">
         <header className="mx-auto flex max-w-5xl items-center justify-between gap-4 border-b border-[var(--divider)] pb-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--action-primary)] text-[var(--action-primary-foreground)]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)]">
               <RadioTower className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>

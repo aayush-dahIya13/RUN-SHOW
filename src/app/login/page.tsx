@@ -60,7 +60,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md">
         <header className="mb-7 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--action-primary)] text-[var(--action-primary-foreground)]">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)]">
             <RadioTower className="h-6 w-6" aria-hidden="true" />
           </div>
           <p className="text-sm font-semibold uppercase tracking-wider text-[var(--action-primary)]">RUNSHOW</p>

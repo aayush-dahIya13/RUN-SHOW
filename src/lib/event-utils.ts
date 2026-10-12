@@ -43,7 +43,6 @@ export function demoCalendarEvents(today = new Date()): Event[] {
   const past = addDays(day, -12);
   const activeStart = addDays(day, -1);
   const activeEnd = addDays(day, 1);
-  const upcoming = addDays(day, 9);
   const asDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const sessions = (eventId: string, date: string, venue: string): EventSession[] => [
     { id: `${eventId}-checkin`, name: 'Check-in and Welcome', date, startTime: '09:00', endTime: '09:45', venue, description: 'Participant check-in and event orientation.', functionName: 'Orientation' },
@@ -66,14 +65,6 @@ export function demoCalendarEvents(today = new Date()): Event[] {
       participantCapacity: 260,
       venueConfirmed: true, daysRemaining: 0, format: 'hybrid', venue: 'Innovation Centre, Demo City', isDemo: true,
       sessions: sessions('runshow-demo-active', asDate(day), 'Innovation Centre, Demo City'), participantInstructions: 'Demo schedule only. Online participants can join using the event link shared by the organizer.',
-    },
-    {
-      id: 'runshow-demo-upcoming', name: 'RUNSHOW Demo: Founder Forum', type: 'Founder forum',
-      date: asDate(upcoming), startDate: asDate(upcoming), endDate: asDate(addDays(upcoming, 1)),
-      targetRegistrations: 320, currentRegistrations: 124, partnerConfirmations: 2, totalPartners: 4,
-      participantCapacity: 360,
-      venueConfirmed: false, daysRemaining: 9, format: 'in-person', venue: 'Central Convention Centre, Demo City', isDemo: true,
-      sessions: sessions('runshow-demo-upcoming', asDate(upcoming), 'Central Convention Centre, Demo City'), participantInstructions: 'Demo schedule only. Check-in details will be confirmed by the organizer.',
     },
   ];
 }

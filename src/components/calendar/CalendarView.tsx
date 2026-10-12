@@ -71,13 +71,14 @@ export function CalendarView() {
             <Button variant="ghost" size="sm" className="h-10 w-10 p-0" aria-label="Next month" onClick={() => setMonth(value => addMonths(value, 1))}><ChevronRight className="h-5 w-5" aria-hidden="true" /></Button>
           </div>
         </div>
-        <div className="mt-5 grid grid-cols-7 border-l border-t border-[var(--border)]" role="grid" aria-label={format(month, 'MMMM yyyy')}>
+        <div className="mt-5 overflow-x-auto overscroll-x-contain">
+        <div className="grid min-w-[560px] grid-cols-7 border-l border-t border-[var(--border)] sm:min-w-0" role="grid" aria-label={format(month, 'MMMM yyyy')}>
           {weekdays.map(day => <div key={day} role="columnheader" className="border-b border-r border-[var(--border)] bg-[var(--surface-elevated)] px-1 py-2 text-center text-xs font-semibold text-[var(--text-secondary)] sm:px-3">{day}</div>)}
           {days.map(day => {
             const dayEvents = eventsByDay.get(format(day, 'yyyy-MM-dd')) ?? [];
             return <div key={day.toISOString()} role="gridcell" aria-label={`${format(day, 'EEEE, MMMM d')}${dayEvents.length ? `, ${dayEvents.length} events` : ', no events'}`} className={`min-h-28 border-b border-r border-[var(--border)] p-1 sm:min-h-36 sm:p-2 ${isSameMonth(day, month) ? 'bg-[var(--surface-card)]' : 'bg-[var(--surface-elevated)]/60'}`}>
               <div className="flex items-center justify-between">
-                <span className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-xs ${isSameDay(day, today) ? 'bg-[var(--action-primary)] font-bold text-[var(--action-primary-foreground)]' : isSameMonth(day, month) ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>{format(day, 'd')}</span>
+                <span className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-xs ${isSameDay(day, today) ? 'bg-[var(--action-primary-fill)] font-bold text-[var(--action-primary-foreground)]' : isSameMonth(day, month) ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>{format(day, 'd')}</span>
                 {dayEvents.length > 1 && <span className="text-[10px] text-[var(--text-muted)]">{dayEvents.length} events</span>}
               </div>
               <div className="mt-1 space-y-1">
@@ -91,6 +92,7 @@ export function CalendarView() {
               </div>
             </div>;
           })}
+        </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[var(--text-secondary)]" aria-label="Event status legend">
           {(['past', 'active', 'upcoming'] as const).map(status => <span key={status} className="inline-flex items-center gap-2"><span className={`h-3 w-3 rounded-sm border ${statusClass[status]}`} />{statusLabel[status]}</span>)}

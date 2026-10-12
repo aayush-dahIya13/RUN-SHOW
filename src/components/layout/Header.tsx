@@ -15,10 +15,12 @@ interface HeaderProps {
   onCreateEvent: () => void;
   onBackToDashboard: () => void;
   onOpenSidebar: () => void;
+  sidebarOpen: boolean;
 }
 
-export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar }: HeaderProps) {
-  const { notifications, markNotificationRead, event } = useDashboardStore();
+export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar, sidebarOpen }: HeaderProps) {
+  const notifications = useDashboardStore(state => state.notifications);
+  const markNotificationRead = useDashboardStore(state => state.markNotificationRead);
   const session = useDemoSession();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const unreadCount = notifications.filter(notification => !notification.read).length;
@@ -50,6 +52,9 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar 
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
+            id="main-navigation-trigger"
+            aria-controls="main-sidebar"
+            aria-expanded={sidebarOpen}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)] md:hidden"
             onClick={onOpenSidebar}
             aria-label="Open main navigation"
@@ -57,15 +62,7 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar 
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold text-[var(--text-primary)]">{title}</h1>
-            {title !== 'Create Event' && (
-              <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-[var(--text-secondary)]">
-                <span className="max-w-52 truncate font-medium text-[var(--text-primary)]">{event.name}</span>
-                {event.isDemo && <span className="rounded border border-[var(--accent)]/50 bg-[var(--accent-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-primary)]">Demo</span>}
-                <span aria-hidden="true">·</span>
-                <span>{dateSummary}</span>
-              </div>
-            )}
+            <h1 className="runshow-scroll-heading truncate text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
           </div>
         </div>
 
