@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Role, Task, DashboardState, Notification, DrawerState, KPIData, Recommendation, Risk, Event, EventPlan, TeamAssignment, ParticipantEventLink, Announcement } from './types';
+import { Role, Task, DashboardState, Notification, DrawerState, KPIData, Recommendation, Risk, Event, EventPlan, TeamAssignment, ParticipantEventLink, Announcement, TicketOption, Invitation, Registration, SupportTicket, SupportMessage, SupportTicketCategory, SupportTicketStatus, SupportTicketPriority, InvitationStatus } from './types';
 import { DEMO_EVENT } from './demo-data';
 import { calculateKPIs, simulateRegistrationOutcome } from './calculations';
 import { generateRecommendations } from './recommendation-rules';
@@ -18,6 +18,11 @@ interface StoreState extends DashboardState {
   teamAssignments: TeamAssignment[];
   participantEvents: ParticipantEventLink[];
   announcements: Announcement[];
+  ticketOptions: TicketOption[];
+  invitations: Invitation[];
+  registrations: Registration[];
+  supportTickets: SupportTicket[];
+  supportMessages: SupportMessage[];
   isUsingApi: boolean;
   generatedPlan: EventPlan | null;
   isSubmittingEvent: boolean;
@@ -43,6 +48,18 @@ interface StoreState extends DashboardState {
   resetToDefaults: () => void;
   initializeFromApi: (eventId: string) => Promise<void>;
   loadEventsFromApi: () => Promise<void>;
+  // New actions for participant platform
+  createTicketOption: (option: Omit<TicketOption, 'id' | 'soldCount'>) => void;
+  updateTicketOption: (id: string, updates: Partial<TicketOption>) => void;
+  deleteTicketOption: (id: string) => void;
+  createInvitation: (invitation: Omit<Invitation, 'id' | 'usedCount' | 'status'>) => void;
+  revokeInvitation: (id: string) => void;
+  registerForEvent: (registration: Omit<Registration, 'id' | 'referenceNumber' | 'registeredAt'>) => void;
+  cancelRegistration: (registrationId: string) => void;
+  createSupportTicket: (ticket: Omit<SupportTicket, 'id' | 'referenceNumber' | 'createdAt' | 'updatedAt'>) => void;
+  updateSupportTicket: (id: string, updates: Partial<SupportTicket>) => void;
+  addSupportMessage: (message: Omit<SupportMessage, 'id' | 'createdAt'>) => void;
+  assignSupportTicket: (ticketId: string, assigneeId: string) => void;
 }
 
 const EMPTY_EVENT: Event = {
@@ -57,6 +74,11 @@ const initialEvents: Event[] = [];
 const initialTeamAssignments: TeamAssignment[] = [];
 const initialParticipantEvents: ParticipantEventLink[] = [];
 const initialAnnouncements: Announcement[] = [];
+const initialTicketOptions: TicketOption[] = [];
+const initialInvitations: Invitation[] = [];
+const initialRegistrations: Registration[] = [];
+const initialSupportTickets: SupportTicket[] = [];
+const initialSupportMessages: SupportMessage[] = [];
 const LEGACY_FIXTURE_EVENT_IDS = new Set([
   DEMO_EVENT.id,
   'runshow-demo-past',
@@ -186,6 +208,11 @@ export const useDashboardStore = create<StoreState>()(
       teamAssignments: initialTeamAssignments,
       participantEvents: initialParticipantEvents,
       announcements: initialAnnouncements,
+      ticketOptions: initialTicketOptions,
+      invitations: initialInvitations,
+      registrations: initialRegistrations,
+      supportTickets: initialSupportTickets,
+      supportMessages: initialSupportMessages,
       notifications: [],
       kpis: calculateKPIs(EMPTY_EVENT, initialTasks),
       drawer: { isOpen: false, task: null, type: 'task' },
@@ -506,6 +533,47 @@ export const useDashboardStore = create<StoreState>()(
           set({ setupError: e instanceof Error ? e.message : 'Unable to load events.' });
         }
       },
+
+      // Ticket options
+      createTicketOption: (option: Omit<TicketOption, 'id' | 'soldCount'>) => set(state => ({
+        ticketOptions: [...state.ticketOptions, { ...option, id: `opt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, soldCount: 0 }]
+      })),
+      updateTicketOption: (id: string, updates: Partial<TicketOption>) => set(state => ({
+        ticketOptions: state.ticketOptions.map(opt => opt.id === id ? { ...opt, ...updates } : opt)
+      })),
+      deleteTicketOption: (id: string) => set(state => ({
+        ticketOptions: state.ticketOptions.filter(opt => opt.id !== id)
+      })),
+
+      // Invitations
+      createInvitation: (invitation: Omit<Invitation, 'id' | 'usedCount' | 'status'>) => set(state => ({
+        invitations: [...state.invitations, { ...invitation, id: `inv-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, usedCount: 0, status: 'active' as InvitationStatus }]
+      })),
+      revokeInvitation: (id: string) => set(state => ({
+        invitations: state.invitations.map(inv => inv.id === id ? { ...inv, status: 'revoked' as InvitationStatus, revokedAt: new Date().toISOString() } : inv)
+      })),
+
+      // Registrations
+      registerForEvent: (registration: Omit<Registration, 'id' | 'referenceNumber' | 'registeredAt'>) => set(state => ({
+        registrations: [...state.registrations, { ...registration, id: `reg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, referenceNumber: `REG-${Date.now().toString(36).toUpperCase()}`, registeredAt: new Date().toISOString() }]
+      })),
+      cancelRegistration: (registrationId: string) => set(state => ({
+        registrations: state.registrations.map(reg => reg.id === registrationId ? { ...reg, status: 'cancelled' as const, cancelledAt: new Date().toISOString() } : reg)
+      })),
+
+      // Support tickets
+      createSupportTicket: (ticket: Omit<SupportTicket, 'id' | 'referenceNumber' | 'createdAt' | 'updatedAt'>) => set(state => ({
+        supportTickets: [...state.supportTickets, { ...ticket, id: `ticket-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, referenceNumber: `SUP-${Date.now().toString(36).toUpperCase()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]
+      })),
+      updateSupportTicket: (id: string, updates: Partial<SupportTicket>) => set(state => ({
+        supportTickets: state.supportTickets.map(t => t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t)
+      })),
+      addSupportMessage: (message: Omit<SupportMessage, 'id' | 'createdAt'>) => set(state => ({
+        supportMessages: [...state.supportMessages, { ...message, id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, createdAt: new Date().toISOString() }]
+      })),
+      assignSupportTicket: (ticketId: string, assigneeId: string) => set(state => ({
+        supportTickets: state.supportTickets.map(t => t.id === ticketId ? { ...t, assigneeId, status: 'acknowledged' as SupportTicketStatus, updatedAt: new Date().toISOString() } : t)
+      })),
     }),
     {
       name: 'eventpilot-dashboard-store',
@@ -539,6 +607,11 @@ export const useDashboardStore = create<StoreState>()(
           teamAssignments: (old.teamAssignments ?? initialTeamAssignments).filter(item => !LEGACY_FIXTURE_EVENT_IDS.has(item.eventId)),
           participantEvents: (old.participantEvents ?? initialParticipantEvents).filter(item => !LEGACY_FIXTURE_EVENT_IDS.has(item.eventId)),
           announcements: (old.announcements ?? initialAnnouncements).filter(item => !LEGACY_FIXTURE_EVENT_IDS.has(item.eventId)),
+          ticketOptions: old.ticketOptions ?? initialTicketOptions,
+          invitations: old.invitations ?? initialInvitations,
+          registrations: old.registrations ?? initialRegistrations,
+          supportTickets: old.supportTickets ?? initialSupportTickets,
+          supportMessages: old.supportMessages ?? initialSupportMessages,
           generatedPlan: old.generatedPlan ?? null,
         };
       },
@@ -555,6 +628,11 @@ export const useDashboardStore = create<StoreState>()(
         teamAssignments: state.teamAssignments,
         participantEvents: state.participantEvents,
         announcements: state.announcements,
+        ticketOptions: state.ticketOptions,
+        invitations: state.invitations,
+        registrations: state.registrations,
+        supportTickets: state.supportTickets,
+        supportMessages: state.supportMessages,
         generatedPlan: state.generatedPlan,
       }),
     }

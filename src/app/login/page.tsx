@@ -122,7 +122,7 @@ export default function LoginPage() {
         <Card variant="glass" padding="md">
           <CardContent>
             <div className="mb-5 grid grid-cols-2 gap-1 rounded-full bg-[var(--surface-elevated)] p-1" role="group" aria-label="Account access">
-              <button type="button" aria-pressed={view === 'signin'} onClick={() => switchView('signin')} className={`min-h-10 rounded-full px-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] ${view === 'signin' ? 'bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>Sign In</button>
+              <button type="button" aria-pressed={view === 'signin'} onClick={() => switchView('signin')} className={`min-h-10 rounded-full px-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] ${view === 'signin' ? 'bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>Login</button>
               <button type="button" aria-pressed={view === 'signup'} onClick={() => switchView('signup')} className={`min-h-10 rounded-full px-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] ${view === 'signup' ? 'bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>Sign Up</button>
             </div>
 
@@ -172,7 +172,7 @@ export default function LoginPage() {
                       {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                     </button>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? 'Signing in…' : 'Sign In'}</Button>
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? 'Signing in…' : 'Login'}</Button>
                 </form>
                 <p className="mt-4 text-center text-sm text-[var(--text-secondary)]">New to RUN-SHOW? <button type="button" onClick={() => switchView('signup')} className="font-semibold text-[var(--action-primary)] underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]">Create a participant account</button></p>
               </section>
@@ -189,7 +189,7 @@ export default function LoginPage() {
                   <Input id="signup-confirm-password" label="Confirm password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required minLength={8} value={confirmPassword} onChange={event => { setConfirmPassword(event.target.value); setError(''); }} />
                   <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? 'Creating account…' : 'Create Participant Account'}</Button>
                 </form>
-                <p className="mt-4 text-center text-sm text-[var(--text-secondary)]">Already have an account? <button type="button" onClick={() => switchView('signin')} className="font-semibold text-[var(--action-primary)] underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]">Sign in</button></p>
+                <p className="mt-4 text-center text-sm text-[var(--text-secondary)]">Already have an account? <button type="button" onClick={() => switchView('signin')} className="font-semibold text-[var(--action-primary)] underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]">Login</button></p>
               </section>
             )}
 

@@ -34,6 +34,7 @@ export interface ParticipantEventLink {
   accountId: string;
   eventId: string;
   registrationStatus?: 'invited' | 'registered' | 'cancelled';
+  createdAt?: string;
 }
 
 export interface Announcement {
@@ -43,7 +44,17 @@ export interface Announcement {
   message: string;
   publishedAt: string;
   isDemo: boolean;
+  category?: 'General' | 'Schedule Change' | 'Venue Update' | 'Important' | 'Emergency';
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
 }
+
+export type EventVisibility = 'public' | 'private';
+export type TicketType = 'free' | 'paid';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'not_applicable';
+export type SupportTicketStatus = 'open' | 'acknowledged' | 'in_progress' | 'waiting_for_participant' | 'resolved' | 'closed';
+export type SupportTicketPriority = 'low' | 'normal' | 'high' | 'critical';
+export type SupportTicketCategory = 'registration' | 'payment' | 'schedule' | 'checkin' | 'technical' | 'communication' | 'other';
+export type InvitationStatus = 'active' | 'expired' | 'revoked' | 'exhausted';
 
 export interface Event {
   id: string;
@@ -76,6 +87,87 @@ export interface Event {
   isDemo?: boolean;
   sessions?: EventSession[];
   participantInstructions?: string;
+  visibility?: EventVisibility;
+  ticketType?: TicketType;
+  ticketPrice?: number;
+  ticketCurrency?: string;
+  registrationDeadline?: string;
+  cancellationPolicy?: string;
+  eligibilityRequirements?: string;
+  bannerImageUrl?: string;
+  organizerInstitution?: string;
+  tags?: string[];
+}
+
+export interface TicketOption {
+  id: string;
+  eventId: string;
+  name: string;
+  description?: string;
+  type: TicketType;
+  price: number;
+  currency: string;
+  capacity?: number;
+  soldCount: number;
+  salesStart?: string;
+  salesEnd?: string;
+  isActive: boolean;
+}
+
+export interface Invitation {
+  id: string;
+  eventId: string;
+  code: string;
+  token: string;
+  createdBy: string;
+  createdAt: string;
+  expiresAt?: string;
+  maxUses?: number;
+  usedCount: number;
+  status: InvitationStatus;
+  revokedAt?: string;
+  revokedBy?: string;
+}
+
+export interface Registration {
+  id: string;
+  eventId: string;
+  participantId: string;
+  ticketOptionId?: string;
+  invitationCode?: string;
+  status: 'confirmed' | 'cancelled' | 'waitlisted';
+  paymentStatus: PaymentStatus;
+  registeredAt: string;
+  cancelledAt?: string;
+  checkedInAt?: string;
+  referenceNumber: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  eventId: string;
+  participantId: string;
+  title: string;
+  description: string;
+  category: SupportTicketCategory;
+  status: SupportTicketStatus;
+  priority: SupportTicketPriority;
+  assigneeId?: string;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
+  referenceNumber: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  senderRole: 'participant' | 'organizer' | 'sub_organizer' | 'system';
+  content: string;
+  isInternal: boolean;
+  createdAt: string;
+  attachments?: string[];
 }
 
 export interface Risk {
