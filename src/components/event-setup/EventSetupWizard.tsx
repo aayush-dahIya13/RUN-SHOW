@@ -264,7 +264,7 @@ export function EventSetupWizard() {
             <Sparkles className="w-5 h-5 text-[var(--action-primary)]" />
             <Badge variant={isUsingApi ? 'success' : 'neutral'}>{isUsingApi ? 'API mode' : 'Prototype setup'}</Badge>
           </div>
-          <h2 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">Event Setup Wizard</h2>
+          <h2 className="runshow-scroll-heading text-3xl font-bold text-[var(--text-primary)] tracking-tight">Event Setup Wizard</h2>
           <p className="text-[var(--text-secondary)] mt-2 max-w-3xl">
             Capture event inputs, generate a reviewable operations plan, then open it in the existing command centre.
           </p>

@@ -33,6 +33,7 @@ const HELP: Record<string, HelpItem[]> = {
 
 const TOURS: Record<string, { title: string; target: string; detail: string }[]> = {
   organizer: [
+    { title: 'Home', target: 'home', detail: 'Your personalized welcome, upcoming events, urgent tasks and critical blockers.' },
     { title: 'Dashboard', target: 'overview', detail: 'Start here for event progress, registration gaps, recommendations and deadlines.' },
     { title: 'Calendar', target: 'calendar', detail: 'Browse event dates and open event details.' },
     { title: 'Event Health', target: 'event-health', detail: 'Review readiness, blockers and recommended next actions.' },
@@ -82,7 +83,7 @@ export function RunshowAssistant() {
   function navigate(target?: string) {
     if (!target || !role) return;
     if (role === 'organizer') {
-      setSelectedView(target as 'setup' | 'overview' | 'calendar' | 'event-health' | 'tasks' | 'settings');
+      setSelectedView(target as 'home' | 'setup' | 'overview' | 'calendar' | 'event-health' | 'tasks' | 'settings');
       return;
     }
     window.dispatchEvent(new CustomEvent('runshow:workspace-tab', { detail: { tab: target } }));
@@ -123,9 +124,9 @@ export function RunshowAssistant() {
         {tour && <div className="rounded-lg border border-[var(--action-primary)]/40 bg-[var(--success-surface)] p-3">
           <p className="text-xs font-semibold uppercase text-[var(--action-primary)]">Guided tour · {tourStep! + 1} of {tourSteps.length}</p>
           <h3 className="mt-1 font-semibold">{tour.title}</h3><p className="mt-1 text-sm text-[var(--text-secondary)]">{tour.detail}</p>
-          <div className="mt-3 flex gap-2"><button type="button" onClick={advanceTour} className="focus-ring inline-flex items-center gap-1 rounded-md bg-[var(--action-primary)] px-3 py-2 text-sm font-medium text-[var(--action-primary-foreground)]">{tourStep === tourSteps.length - 1 ? 'Finish tour' : 'Next'}<ArrowRight className="h-4 w-4" /></button><button type="button" onClick={() => setTourStep(null)} className="focus-ring rounded-md px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]">Exit</button></div>
+          <div className="mt-3 flex gap-2"><button type="button" onClick={advanceTour} className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--action-primary-fill)] px-3 py-2 text-sm font-medium text-[var(--action-primary-foreground)]">{tourStep === tourSteps.length - 1 ? 'Finish tour' : 'Next'}<ArrowRight className="h-4 w-4" /></button><button type="button" onClick={() => setTourStep(null)} className="focus-ring rounded-full px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]">Exit</button></div>
         </div>}
-        {response && !tour && <div className="rounded-lg border border-[var(--border)] p-3"><p className="text-xs font-medium text-[var(--action-primary)]">{response.question}</p><p className="mt-1 text-sm text-[var(--text-primary)]">{response.answer}</p>{response.action && <button type="button" onClick={() => navigate(response.target)} className="focus-ring mt-3 inline-flex items-center gap-2 rounded-md bg-[var(--action-primary)] px-3 py-2 text-sm font-medium text-[var(--action-primary-foreground)]">{response.action}<ArrowRight className="h-4 w-4" /></button>}</div>}
+        {response && !tour && <div className="rounded-lg border border-[var(--border)] p-3"><p className="text-xs font-medium text-[var(--action-primary)]">{response.question}</p><p className="mt-1 text-sm text-[var(--text-primary)]">{response.answer}</p>{response.action && <button type="button" onClick={() => navigate(response.target)} className="focus-ring mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--action-primary-fill)] px-3 py-2 text-sm font-medium text-[var(--action-primary-foreground)]">{response.action}<ArrowRight className="h-4 w-4" /></button>}</div>}
         <div><h3 className="mb-2 text-xs font-semibold uppercase text-[var(--text-secondary)]">Quick help</h3><div className="space-y-1.5">{questions.map(item => <button type="button" key={item.question} onClick={() => { setTourStep(null); setResponse(item); }} className="focus-ring flex w-full items-center justify-between gap-3 rounded-md border border-[var(--border)] px-3 py-2.5 text-left text-sm transition-colors hover:border-[var(--action-primary)]/50 hover:bg-[var(--surface-elevated)]"><span>{item.question}</span><ArrowRight className="h-4 w-4 shrink-0 text-[var(--action-primary)]" /></button>)}</div></div>
         <button type="button" onClick={startTour} className="focus-ring flex w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2.5 text-sm font-medium transition-colors hover:bg-[var(--surface-elevated)]"><HelpCircle className="h-4 w-4 text-[var(--action-primary)]" />{tourStep === null ? 'Start guided tour' : 'Restart guided tour'}</button>
         <p className="text-xs text-[var(--text-muted)]">Guided tutorial assistance. No AI service is connected.</p>

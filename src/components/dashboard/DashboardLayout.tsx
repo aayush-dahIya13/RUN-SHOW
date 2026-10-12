@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'motion/react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { KPICards, EventReadinessIndicator } from '@/components/dashboard/KPICards';
@@ -19,8 +18,10 @@ import { EventHealthView } from '@/components/dashboard/EventHealthView';
 import { DashboardOverviewSummary } from '@/components/dashboard/DashboardOverviewSummary';
 import { SettingsView } from '@/components/settings/SettingsView';
 import { RunshowAssistant } from '@/components/assistant/RunshowAssistant';
+import { HomeView } from '@/components/dashboard/HomeView';
 
 const VIEW_COMPONENTS = {
+  home: () => <HomeView onCreateEvent={() => useDashboardStore.getState().setSelectedView('setup')} />,
   setup: () => <EventSetupWizard />,
   overview: () => (
     <div className="space-y-6">
@@ -54,6 +55,7 @@ const VIEW_COMPONENTS = {
 };
 
 const VIEW_TITLES: Record<keyof typeof VIEW_COMPONENTS, string> = {
+  home: 'Home',
   setup: 'Create Event',
   overview: 'Dashboard',
   calendar: 'Calendar',
@@ -65,15 +67,47 @@ const VIEW_TITLES: Record<keyof typeof VIEW_COMPONENTS, string> = {
   operations: 'Operations',
 };
 
+function TaskDrawerHost() {
+  const drawer = useDashboardStore(state => state.drawer);
+  return <TaskDrawerContent state={drawer} onClose={() => useDashboardStore.getState().closeDrawer()} />;
+}
+
 export function DashboardLayout() {
-  const { selectedView, drawer, setSelectedView } = useDashboardStore();
+  const selectedView = useDashboardStore(state => state.selectedView);
+  const setSelectedView = useDashboardStore(state => state.setSelectedView);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const shellRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = React.useRef<HTMLElement>(null);
+  const closeSidebar = React.useCallback(() => setSidebarOpen(false), []);
   const ViewComponent = VIEW_COMPONENTS[selectedView] || VIEW_COMPONENTS.overview;
   const title = VIEW_TITLES[selectedView] ?? 'Dashboard';
 
+  React.useEffect(() => {
+    const content = contentRef.current;
+    const shell = shellRef.current;
+    if (!content || !shell) return;
+    const updateHeading = () => {
+      const compact = content.scrollTop > 24;
+      if ((shell.dataset.headingCompact === 'true') !== compact) {
+        shell.dataset.headingCompact = String(compact);
+      }
+    };
+    updateHeading();
+    content.addEventListener('scroll', updateHeading, { passive: true });
+    return () => content.removeEventListener('scroll', updateHeading);
+  }, []);
+
+  React.useLayoutEffect(() => {
+    const content = contentRef.current;
+    const shell = shellRef.current;
+    if (!content || !shell) return;
+    content.scrollTop = 0;
+    shell.dataset.headingCompact = 'false';
+  }, [selectedView]);
+
   return (
-    <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-[var(--page-bg)] text-[var(--text-primary)]">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div ref={shellRef} data-heading-compact="false" className="flex h-dvh min-h-0 w-full overflow-hidden bg-[var(--page-bg)] text-[var(--text-primary)]">
+      <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Header
@@ -81,28 +115,18 @@ export function DashboardLayout() {
           onCreateEvent={() => setSelectedView('setup')}
           onBackToDashboard={() => setSelectedView('overview')}
           onOpenSidebar={() => setSidebarOpen(true)}
+          sidebarOpen={sidebarOpen}
         />
 
-        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 pb-24 sm:p-6 sm:pb-28 lg:p-8 lg:pb-28" role="main">
-          <motion.div
-            key={selectedView}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.16 }}
-            className="space-y-6"
-          >
-            {selectedView !== 'setup' && (
-              <>
-                <div className="hidden lg:block" aria-hidden="true"><KPICards /></div>
-                <div className="lg:hidden"><KPICards /></div>
-              </>
-            )}
+        <main ref={contentRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 pb-24 sm:p-6 sm:pb-28 lg:p-8 lg:pb-28" role="main">
+          <div key={selectedView} className="space-y-6">
+            {(selectedView === 'overview' || selectedView === 'calendar') && <KPICards />}
             <ViewComponent />
-          </motion.div>
+          </div>
         </main>
       </div>
 
-      <TaskDrawerContent state={drawer} onClose={() => useDashboardStore.getState().closeDrawer()} />
+      <TaskDrawerHost />
       <RunshowAssistant />
     </div>
   );
