@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { format, isValid, parseISO } from 'date-fns';
-import { ArrowLeft, Bell, Menu, Plus, UserRound, User, LogOut, ChevronDown } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Bell, ChevronDown, LogOut, Menu, Plus, UserRound } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
-import { useDemoSession } from '@/lib/demo-auth';
-import { motion, AnimatePresence } from 'motion/react';
-import { useAuthStore } from '@/lib/auth-store';
+import { clearDemoSession, useDemoSession } from '@/lib/demo-auth';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -19,31 +17,32 @@ interface HeaderProps {
 }
 
 export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar, sidebarOpen }: HeaderProps) {
+  const router = useRouter();
+  const event = useDashboardStore(state => state.event);
   const notifications = useDashboardStore(state => state.notifications);
   const markNotificationRead = useDashboardStore(state => state.markNotificationRead);
   const session = useDemoSession();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const unreadCount = notifications.filter(notification => !notification.read).length;
-  const start = parseISO(event.startDate || event.date);
-  const end = parseISO(event.endDate || event.startDate || event.date);
-  const dateSummary = !isValid(start) ? 'Dates not set' : isValid(end) && format(start, 'yyyy-MM-dd') !== format(end, 'yyyy-MM-dd')
-    ? `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`
-    : format(start, 'MMM d, yyyy');
-  const { user, logout } = useAuthStore();
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const displayName = typeof session?.name === 'string' && session.name.trim() ? session.name.trim() : 'Organizer';
+  const displayEmail = typeof session?.email === 'string' && session.email.trim() ? session.email.trim() : 'Account details unavailable';
+  const roleLabel = session?.role === 'sub_organizer' ? 'Sub-organizer' : session?.role === 'participant' ? 'Participant' : 'Organizer';
+  const eventName = typeof event?.name === 'string' && event.name.trim() ? event.name.trim() : '';
+  const eventStart = [event?.startDate, event?.date].find(value => typeof value === 'string' && value.trim());
+  const eventEnd = [event?.endDate, event?.startDate, event?.date].find(value => typeof value === 'string' && value.trim());
+  const formatDate = (value: string | undefined) => {
+    if (!value) return '';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  const startDate = formatDate(eventStart);
+  const endDate = formatDate(eventEnd);
+  const eventDateSummary = startDate ? (endDate && endDate !== startDate ? `${startDate} – ${endDate}` : startDate) : '';
 
-  const getRoleLabel = (role: string) => {
-    const labels: Record<string, string> = {
-      organizer: 'Organizer',
-      'sub-organizer': 'Sub-organizer',
-      participant: 'Participant',
-      leadership: 'Leadership',
-      marketing: 'Marketing',
-      partnerships: 'Partnerships',
-      operations: 'Operations',
-      programme: 'Programme',
-    };
-    return labels[role] || role;
+  const logout = () => {
+    clearDemoSession();
+    router.replace('/login');
   };
 
   return (
@@ -63,6 +62,11 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
           </button>
           <div className="min-w-0">
             <h1 className="runshow-scroll-heading truncate text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
+            {eventName && (
+              <p className="hidden max-w-[min(38vw,32rem)] truncate text-xs text-[var(--text-secondary)] lg:block" title={eventDateSummary ? `${eventName} | ${eventDateSummary}` : eventName}>
+                {eventName}{eventDateSummary ? ` | ${eventDateSummary}` : ''}{event?.isDemo ? ' | Demo' : ''}
+              </p>
+            )}
           </div>
         </div>
 
@@ -133,58 +137,32 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
           </div>
 
           <ThemeToggle />
-          <div className="hidden min-w-0 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 py-2 sm:flex">
-            <UserRound className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
-            <span className="max-w-32 truncate text-sm font-medium text-[var(--text-secondary)]">{session?.name ?? 'Organizer'}</span>
-            </div>
-
-            {/* User Menu */}
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 bg-slate-900/50 border border-slate-800 rounded-lg"
-                aria-expanded={showUserMenu}
-                aria-haspopup="true"
-              >
-                <User className="w-4 h-4 text-slate-400" aria-hidden="true" />
-                <span className="text-sm text-slate-300 font-medium">
-                  {user ? getRoleLabel(user.role) : 'Organizer'}
-                </span>
-                <ChevronDown className="w-4 h-4 text-slate-400" aria-hidden="true" />
-              </Button>
-
-              <AnimatePresence>
-                {showUserMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-xl p-2"
-                    role="menu"
-                  >
-                    {user && (
-                      <div className="px-3 py-2 border-b border-slate-800">
-                        <p className="text-sm font-medium text-slate-100 truncate">{user.email}</p>
-                        <p className="text-xs text-slate-400 capitalize">{getRoleLabel(user.role)}</p>
-                        {user.teamResponsibility && (
-                          <p className="text-xs text-cyan-400 mt-1">{user.teamResponsibility}</p>
-                        )}
-                      </div>
-                    )}
-                    <button
-                      onClick={logout}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-slate-100 hover:bg-slate-800/50 transition-colors"
-                      role="menuitem"
-                    >
-                      <LogOut className="w-4 h-4" aria-hidden="true" />
-                      Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+          <div className="relative hidden sm:block">
+            <button
+              type="button"
+              className="flex max-w-52 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]"
+              onClick={() => setUserMenuOpen(open => !open)}
+              aria-expanded={userMenuOpen}
+              aria-haspopup="menu"
+              aria-label={`Account menu for ${displayName}`}
+            >
+              <UserRound className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="max-w-32 truncate text-sm font-medium">{displayName}</span>
+              <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+            </button>
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2 shadow-xl shadow-[var(--shadow-color)]" role="menu" aria-label="Account">
+                <div className="border-b border-[var(--divider)] px-3 py-2">
+                  <p className="truncate text-sm font-medium text-[var(--text-primary)]">{displayEmail}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{roleLabel}</p>
+                </div>
+                <button type="button" role="menuitem" onClick={logout} className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--neutral-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]">
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
           </div>
         </div>
       </header>

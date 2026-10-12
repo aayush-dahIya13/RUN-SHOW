@@ -19,6 +19,12 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { DEMO_EVENT } from '@/lib/demo-data';
 
+function attendeeInitials(name: unknown) {
+  if (typeof name !== 'string') return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts.slice(0, 2).map(part => part.charAt(0)).join('').toUpperCase() : '?';
+}
+
 export function ParticipantView() {
   const { event } = useDashboardStore();
   const { logout } = useAuthStore();
@@ -395,7 +401,7 @@ function NetworkView() {
                 className="flex items-center gap-4 p-4 bg-slate-900/50 rounded-lg border border-slate-800/50"
               >
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-bold">
-                  {attendee.name.split(' ').map(n => n[0]).join('')}
+                  {attendeeInitials(attendee.name)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-slate-100 truncate">{attendee.name}</p>
