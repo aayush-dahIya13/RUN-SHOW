@@ -21,11 +21,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/Badge';
 
 const COLORS = {
-  primary: '#06b6d4',
-  target: '#64748b',
-  targetLine: '#475569',
-  grid: '#1e293b',
-  text: '#94a3b8',
+  primary: 'var(--action-primary)',
+  target: 'var(--text-secondary)',
+  targetLine: 'var(--text-secondary)',
+  grid: 'var(--divider)',
+  text: 'var(--text-secondary)',
 };
 
 interface CustomTooltipProps {
@@ -49,23 +49,23 @@ function RegistrationTooltip({ active, payload, label }: CustomTooltipProps) {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-900 border border-slate-800 rounded-lg p-3 shadow-xl min-w-[180px]"
+      className="bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg p-3 shadow-xl min-w-[180px]"
     >
-      <p className="text-sm font-medium text-slate-100 mb-2">{label}</p>
+      <p className="text-sm font-medium text-[var(--text-primary)] mb-2">{label}</p>
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-cyan-400" />
-          <span className="text-slate-300">Actual: <span className="font-mono text-slate-100">{dataPoint.registrations}</span></span>
+          <span className="w-2 h-2 rounded-full bg-[var(--action-primary)]" />
+          <span className="text-[var(--text-secondary)]">Actual: <span className="font-mono text-[var(--text-primary)]">{dataPoint.registrations}</span></span>
         </div>
         {dataPoint.target && (
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-slate-600" />
-            <span className="text-slate-300">Target: <span className="font-mono text-slate-100">{dataPoint.target}</span></span>
+            <span className="w-2 h-2 rounded-full bg-[var(--text-muted)]" />
+            <span className="text-[var(--text-secondary)]">Target: <span className="font-mono text-[var(--text-primary)]">{dataPoint.target}</span></span>
           </div>
         )}
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-yellow-400" />
-          <span className="text-slate-300">Projected: <span className="font-mono text-slate-100">{dataPoint.projected}</span></span>
+          <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
+          <span className="text-[var(--text-secondary)]">Projected: <span className="font-mono text-[var(--text-primary)]">{dataPoint.projected}</span></span>
         </div>
       </div>
     </motion.div>
@@ -81,21 +81,21 @@ function OutreachTooltip({ active, payload, label }: CustomTooltipProps) {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-900 border border-slate-800 rounded-lg p-3 shadow-xl min-w-[200px]"
+      className="bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg p-3 shadow-xl min-w-[200px]"
     >
-      <p className="text-sm font-medium text-slate-100 mb-2">{label}</p>
+      <p className="text-sm font-medium text-[var(--text-primary)] mb-2">{label}</p>
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-cyan-400" />
-          <span className="text-slate-300">Sent: <span className="font-mono text-slate-100">{dataPoint.sent.toLocaleString()}</span></span>
+          <span className="w-2 h-2 rounded-full bg-[var(--action-primary)]" />
+          <span className="text-[var(--text-secondary)]">Sent: <span className="font-mono text-[var(--text-primary)]">{dataPoint.sent.toLocaleString()}</span></span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-400" />
-          <span className="text-slate-300">Converted: <span className="font-mono text-slate-100">{dataPoint.converted}</span></span>
+          <span className="w-2 h-2 rounded-full bg-[var(--action-primary)]" />
+          <span className="text-[var(--text-secondary)]">Converted: <span className="font-mono text-[var(--text-primary)]">{dataPoint.converted}</span></span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-yellow-400" />
-          <span className="text-slate-300">Rate: <span className="font-mono text-slate-100">{dataPoint.conversionRate}%</span></span>
+          <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
+          <span className="text-[var(--text-secondary)]">Rate: <span className="font-mono text-[var(--text-primary)]">{dataPoint.conversionRate}%</span></span>
         </div>
       </div>
     </motion.div>
@@ -115,7 +115,7 @@ export function RegistrationTrendChart() {
         <CardTitle>Registration Trend</CardTitle>
         <CardDescription className="flex items-center gap-2 mt-1">
           <Badge variant="neutral" size="sm">Demo Data</Badge>
-          <span>Simulated registration trajectory for TechSprint Delhi</span>
+          <span>Illustrative demo trend; figures are not event-specific</span>
         </CardDescription>
       </CardHeader>
       <CardContent className="p-6 pt-0">
@@ -143,10 +143,10 @@ export function RegistrationTrendChart() {
               <Legend
                 wrapperStyle={{ paddingTop: 10 }}
                 formatter={(value) => (
-                  <span className="text-sm text-slate-400 flex items-center gap-1">
-                    {value === 'registrations' && <span className="w-2 h-2 rounded-full bg-cyan-400" />}
-                    {value === 'target' && <span className="w-2 h-2 rounded-full bg-slate-600" />}
-                    {value === 'projected' && <span className="w-2 h-2 rounded-full bg-yellow-400" />}
+                  <span className="text-sm text-[var(--text-secondary)] flex items-center gap-1">
+                    {value === 'registrations' && <span className="w-2 h-2 rounded-full bg-[var(--action-primary)]" />}
+                    {value === 'target' && <span className="w-2 h-2 rounded-full bg-[var(--text-muted)]" />}
+                    {value === 'projected' && <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />}
                     {value}
                   </span>
                 )}
@@ -186,18 +186,18 @@ export function RegistrationTrendChart() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-800/50">
+        <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-[var(--divider)]">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-cyan-400" />
-            <span className="text-sm text-slate-300">Actual registrations</span>
+            <span className="w-3 h-3 rounded-full bg-[var(--action-primary)]" />
+            <span className="text-sm text-[var(--text-secondary)]">Actual registrations</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-6 h-1 bg-slate-600" />
-            <span className="text-sm text-slate-300">Target trajectory</span>
+            <span className="w-6 h-1 bg-[var(--text-muted)]" />
+            <span className="text-sm text-[var(--text-secondary)]">Target trajectory</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-6 h-1 border-t border-yellow-400 border-dotted" />
-            <span className="text-sm text-slate-300">Projected (current pace)</span>
+            <span className="w-6 h-1 border-t border-[var(--accent)] border-dotted" />
+            <span className="text-sm text-[var(--text-secondary)]">Projected (current pace)</span>
           </div>
         </div>
       </CardContent>
@@ -247,14 +247,14 @@ export function OutreachConversionChart() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-800/50">
+        <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-[var(--divider)]">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-cyan-400/80" />
-            <span className="text-sm text-slate-300">Converted</span>
+            <span className="w-3 h-3 rounded bg-[var(--action-primary)]/80" />
+            <span className="text-sm text-[var(--text-secondary)]">Converted</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-6 h-1 border-t border-slate-600 border-dotted" />
-            <span className="text-sm text-slate-300">Total sent (outline)</span>
+            <span className="w-6 h-1 border-t border-[var(--text-muted)] border-dotted" />
+            <span className="text-sm text-[var(--text-secondary)]">Total sent (outline)</span>
           </div>
         </div>
       </CardContent>

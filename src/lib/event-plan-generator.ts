@@ -43,6 +43,8 @@ export function getDefaultEventSetupForm(): EventSetupFormData {
     budget: undefined,
     operationalRequirements: '',
     expectedPartners: 4,
+    sessions: [],
+    participantCapacity: undefined,
   };
 }
 

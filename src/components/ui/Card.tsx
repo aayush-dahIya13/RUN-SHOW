@@ -12,9 +12,9 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ className = '', variant = 'default', padding = 'md', hover = false, children, ...props }, ref) => {
     const variants = {
-      default: 'bg-slate-900/50 border border-slate-800',
-      glass: 'bg-slate-900/30 backdrop-blur-sm border border-slate-800/50',
-      elevated: 'bg-slate-900 border border-slate-800 shadow-xl shadow-slate-950/50',
+      default: 'bg-[var(--surface-card)] border border-[var(--border)]',
+      glass: 'bg-[var(--surface-card)]/85 backdrop-blur-sm border border-[var(--border)]',
+      elevated: 'bg-[var(--surface-elevated)] border border-[var(--border)] shadow-xl shadow-[var(--shadow-color)]',
     };
 
     const paddings = {
@@ -30,7 +30,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <MotionDiv
         ref={ref}
         className={`${variants[variant]} ${paddings[padding]} rounded-xl ${className}`}
-        whileHover={hover ? { y: -2, boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(6, 182, 212, 0.1)' } : undefined}
+        whileHover={hover ? { y: -2 } : undefined}
         transition={hover ? { duration: 0.2 } : undefined}
         {...props}
       >
@@ -54,7 +54,7 @@ CardHeader.displayName = 'CardHeader';
 
 export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
   ({ className = '', children, ...props }, ref) => (
-    <h3 ref={ref} className={`text-lg font-semibold text-slate-100 ${className}`} {...props}>
+    <h3 ref={ref} className={`text-lg font-semibold text-[var(--text-primary)] ${className}`} {...props}>
       {children}
     </h3>
   )
@@ -64,7 +64,7 @@ CardTitle.displayName = 'CardTitle';
 
 export const CardDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
   ({ className = '', children, ...props }, ref) => (
-    <p ref={ref} className={`text-sm text-slate-400 mt-1 ${className}`} {...props}>
+    <p ref={ref} className={`text-sm text-[var(--text-secondary)] mt-1 ${className}`} {...props}>
       {children}
     </p>
   )
@@ -84,7 +84,7 @@ CardContent.displayName = 'CardContent';
 
 export const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className = '', children, ...props }, ref) => (
-    <div ref={ref} className={`mt-4 pt-4 border-t border-slate-800/50 flex items-center gap-2 ${className}`} {...props}>
+    <div ref={ref} className={`mt-4 pt-4 border-t border-[var(--divider)] flex items-center gap-2 ${className}`} {...props}>
       {children}
     </div>
   )
