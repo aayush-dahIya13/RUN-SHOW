@@ -25,7 +25,7 @@ export function EventHealthView() {
     <h2 className="mt-5 text-xl font-semibold text-[var(--text-primary)]">No event is currently active</h2>
     <p className="mt-2 text-sm text-[var(--text-secondary)]">Event Health only reports an event whose scheduled dates include today.</p>
     {next ? <div className="mt-6 border-t border-[var(--divider)] pt-5">
-      <p className="text-xs font-semibold uppercase text-[var(--text-secondary)]">Next upcoming event{next.isDemo ? ' · Demo data' : ''}</p>
+      <p className="text-xs font-semibold uppercase text-[var(--text-secondary)]">Next upcoming event</p>
       <h3 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">{next.name}</h3>
       <p className="mt-1 text-sm text-[var(--text-secondary)]">{dateLabel(next)} · {next.venue || 'Venue not confirmed'}</p>
       <div className="mt-4 flex flex-wrap gap-2"><Button onClick={() => { selectEvent(next.id); setSelectedView('overview'); }}>Open event workspace <ArrowRight className="h-4 w-4" aria-hidden="true" /></Button><Button variant="secondary" onClick={() => { selectEvent(next.id); setSelectedView('calendar'); }}>View in Calendar</Button></div>
@@ -41,10 +41,9 @@ export function EventHealthView() {
   const needsAttention = seriousRisks.length > 0 || overdue.length > 0 || eventTasks.some(task => task.status === 'blocked');
 
   return <div className="space-y-5">
-    {active.isDemo && <p className="rounded-md border border-[var(--accent)]/50 bg-[var(--accent-muted)] px-4 py-3 text-sm text-[var(--text-primary)]">Demo event: registrations, partner and task data below are simulated.</p>}
     <Card padding="md">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full border border-[var(--action-primary)]/50 bg-[var(--success-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">Active now</span><span className="text-xs text-[var(--text-secondary)]">{active.isDemo ? 'Demo data' : 'Organizer event'}</span></div><h2 className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{active.name}</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">{dateLabel(active)}</p></div>
+        <div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full border border-[var(--action-primary)]/50 bg-[var(--success-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)]">Active now</span></div><h2 className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{active.name}</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">{dateLabel(active)}</p></div>
         <div className="flex items-start gap-2 text-sm text-[var(--text-secondary)]"><MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{active.venue || 'Venue not confirmed'}</div>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[var(--divider)] pt-5 lg:grid-cols-4">

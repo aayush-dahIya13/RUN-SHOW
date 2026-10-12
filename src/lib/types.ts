@@ -62,6 +62,13 @@ export interface Event {
   audience?: string;
   format?: 'in-person' | 'virtual' | 'hybrid';
   venue?: string;
+  startTime?: string;
+  endTime?: string;
+  timezone?: string;
+  meetingUrl?: string;
+  joiningInstructions?: string;
+  expectedAttendance?: number;
+  lifecycle?: 'draft' | 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
   objectives?: string[];
   successMetrics?: string[];
   budget?: number;
@@ -181,6 +188,9 @@ export interface EventSetupFormData {
   type: string;
   startDate: string;
   endDate: string;
+  startTime: string;
+  endTime: string;
+  timezone: string;
   registrationDeadline: string;
   partnerDeadline: string;
   contentDeadline: string;
@@ -189,12 +199,15 @@ export interface EventSetupFormData {
   currentRegistrations: number;
   venue: string;
   format: 'in-person' | 'virtual' | 'hybrid';
+  meetingUrl: string;
+  joiningInstructions: string;
   objectives: string;
   successMetrics: string;
   budget?: number;
   operationalRequirements: string;
   expectedPartners: number;
   participantCapacity?: number;
+  expectedAttendance: number;
   sessions?: EventSession[];
 }
 

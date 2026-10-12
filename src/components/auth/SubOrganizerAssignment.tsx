@@ -321,21 +321,6 @@ export function SubOrganizerAssignment() {
         )}
       </motion.div>
 
-      {/* Demo Notice */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="p-4 bg-slate-900/30 border border-slate-800/50 rounded-xl"
-      >
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="text-sm text-slate-400">
-            <p className="font-medium text-slate-300">Demo Mode</p>
-            <p>Invitations are simulated — no real emails are sent. Use the &quot;Accept&quot;/&quot;Reject&quot; buttons to simulate team member responses.</p>
-          </div>
-        </div>
-      </motion.div>
     </div>
   );
 }

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useSyncExternalStore } from 'react';
-import { CalendarDays, CheckSquare, ChevronLeft, ChevronRight, HeartPulse, Home, LayoutDashboard, RadioTower, Settings, X } from 'lucide-react';
+import { CalendarDays, CheckSquare, ChevronLeft, ChevronRight, HeartPulse, Home, LayoutDashboard, Settings, X } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { LogoutButton } from '@/components/auth/LogoutButton';
+import { BrandNavigation } from './BrandNavigation';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -97,21 +99,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       id="main-sidebar"
       role={isOpen ? 'dialog' : undefined}
       aria-modal={isOpen || undefined}
-      className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(18rem,calc(100vw-2rem))] max-w-full shrink-0 flex-col border-r border-[var(--divider)] bg-[var(--sidebar-bg)] transition-transform duration-200 motion-reduce:transition-none md:relative md:translate-x-0 ${collapsed ? 'md:w-20' : 'md:w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(18rem,calc(100vw-2rem))] max-w-full shrink-0 flex-col border-r border-[var(--divider)] bg-[var(--sidebar-bg)] transition-[width,transform,background-color] duration-200 motion-reduce:transition-none md:relative md:translate-x-0 ${collapsed ? 'md:w-20' : 'md:w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       aria-label="Main navigation"
     >
       <div className={`flex h-20 shrink-0 items-center justify-between gap-3 border-b border-[var(--divider)] px-4 md:h-24 ${collapsed ? 'md:flex-col md:justify-center md:gap-3 md:px-0' : ''}`}>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)]"><RadioTower className="h-5 w-5" aria-hidden="true" /></span>
-          <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}>
-            <span className="block truncate text-lg font-bold leading-tight text-[var(--text-primary)]">RUNSHOW</span>
-            <span className="block truncate text-[10px] uppercase text-[var(--text-secondary)]">Intelligent Event Command Centre</span>
-          </div>
-        </div>
+        <Tooltip label="RUNSHOW home" enabled={collapsed} className={`min-w-0 ${collapsed ? 'md:block md:w-full' : ''}`}>
+          <BrandNavigation compact={collapsed} onNavigate={onClose} className={`min-w-0 ${collapsed ? 'md:w-full md:justify-center' : ''}`} />
+        </Tooltip>
         <button ref={closeButtonRef} type="button" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)] md:hidden" onClick={onClose} aria-label="Close navigation"><X className="h-5 w-5" aria-hidden="true" /></button>
-        <button type="button" className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-elevated)] hover:text-[var(--action-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar-bg)] md:inline-flex" onClick={toggleCollapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          {collapsed ? <ChevronRight className="h-5 w-5" aria-hidden="true" /> : <ChevronLeft className="h-5 w-5" aria-hidden="true" />}
-        </button>
+        <Tooltip label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side={collapsed ? 'right' : 'bottom'} className="hidden shrink-0 md:block">
+          <button type="button" className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-elevated)] hover:text-[var(--action-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar-bg)] md:inline-flex" onClick={toggleCollapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed}>
+            {collapsed ? <ChevronRight className="h-5 w-5" aria-hidden="true" /> : <ChevronLeft className="h-5 w-5" aria-hidden="true" />}
+          </button>
+        </Tooltip>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4" aria-label="Organizer navigation">
@@ -120,10 +120,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             const Icon = item.icon;
             const isActive = selectedView === item.id || (selectedView === 'setup' && item.id === 'overview');
             return <li key={item.id}>
-              <button type="button" onClick={() => { setSelectedView(item.id); onClose(); }} title={collapsed ? item.label : undefined} aria-label={item.label} aria-current={isActive ? 'page' : undefined} className={`group flex min-h-11 w-full items-center gap-3 rounded-full border-l-2 px-3 py-2.5 text-left font-medium transition-[background-color,color,border-color] duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--focus)] ${collapsed ? 'md:justify-center md:px-2' : ''} ${isActive ? 'border-l-[var(--accent)] bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)]' : 'border-l-transparent text-[var(--text-secondary)] hover:border-l-[var(--action-primary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--action-primary)]'}`}>
-                <Icon className="h-5 w-5 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 group-focus-visible:translate-x-0.5" aria-hidden="true" />
-                <span className={collapsed ? 'md:hidden' : ''}>{item.label}</span>
-              </button>
+              <Tooltip label={item.label} enabled={collapsed} className="block w-full">
+                <button type="button" onClick={() => { setSelectedView(item.id); onClose(); }} aria-label={item.label} aria-current={isActive ? 'page' : undefined} className={`group flex min-h-11 w-full items-center gap-3 rounded-full border-l-2 px-3 py-2.5 text-left font-medium transition-[background-color,color,border-color] duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--focus)] ${collapsed ? 'md:justify-center md:px-2' : ''} ${isActive ? 'border-l-[var(--accent)] bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)]' : 'border-l-transparent text-[var(--text-secondary)] hover:border-l-[var(--action-primary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--action-primary)]'}`}>
+                  <Icon className="h-5 w-5 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 group-focus-visible:translate-x-0.5" aria-hidden="true" />
+                  <span className={collapsed ? 'md:hidden' : ''}>{item.label}</span>
+                </button>
+              </Tooltip>
             </li>;
           })}
         </ul>

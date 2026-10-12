@@ -31,11 +31,12 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...init?.headers },
+    credentials: 'include',
     ...init,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || `API error: ${res.status}`);
+    throw new Error(err.error?.message || err.message || `API error: ${res.status}`);
   }
   return res.json();
 }
@@ -64,8 +65,8 @@ export const api = {
     return DEMO_EVENT;
   },
 
-  async createEvent(event: Omit<Event, 'id' | 'daysRemaining'>): Promise<Event> {
-    if (USE_API) return fetchJson<Event>('/events', { method: 'POST', body: JSON.stringify(event) });
+  async createEvent(event: Omit<Event, 'id' | 'daysRemaining'>, tasks?: Task[]): Promise<Event> {
+    if (USE_API) return fetchJson<Event>('/events', { method: 'POST', body: JSON.stringify({ ...event, tasks }) });
     const today = new Date();
     const eventDate = new Date(event.date);
     today.setHours(0, 0, 0, 0);

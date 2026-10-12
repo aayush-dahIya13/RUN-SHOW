@@ -100,7 +100,6 @@ export function Recommendations() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-2">
             <CardTitle>AI Recommendations</CardTitle>
-            <Badge variant="neutral" size="sm">Demo Data</Badge>
           </div>
           <CardDescription className="mt-1 ml-0 sm:mt-0 sm:ml-2">
             {urgentCount} urgent, {highCount} high — prioritized actions based on current risks

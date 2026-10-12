@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ArrowRight, ChevronDown, ChevronUp, HelpCircle, X } from 'lucide-react';
 import { useDemoSession } from '@/lib/demo-auth';
 import { useDashboardStore } from '@/lib/dashboard-state';
+import { useDismissableLayer } from '@/components/ui/useDismissableLayer';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 type HelpItem = { question: string; answer: string; action?: string; target?: string };
 
@@ -14,7 +16,7 @@ const HELP: Record<string, HelpItem[]> = {
     { question: 'How do I read Event Health?', answer: 'Event Health brings together registration progress, task completion, blockers and next actions for the selected event.', action: 'Open Event Health', target: 'event-health' },
     { question: 'Where can I find registration gaps?', answer: 'The Dashboard summary compares registrations with each event target and highlights the remaining gap.', action: 'Open Dashboard', target: 'overview' },
     { question: 'How do I manage tasks?', answer: 'Tasks can be filtered by event, status and role. Status changes update the shared workspace.', action: 'Open Tasks', target: 'tasks' },
-    { question: 'How do I assign a sub-organizer?', answer: 'Go to Settings, then Team & Access to create a demo account and assign event functions.', action: 'Open Settings', target: 'settings' },
+    { question: 'How do I assign a sub-organizer?', answer: 'Go to Settings, then Team & Access to create an account and assign event functions.', action: 'Open Settings', target: 'settings' },
     { question: 'Where are Settings and Calendar?', answer: 'Both are available in the organizer navigation.', action: 'Open Calendar', target: 'calendar' },
   ],
   sub_organizer: [
@@ -77,6 +79,13 @@ export function RunshowAssistant() {
   const [minimized, setMinimized] = useState(false);
   const [response, setResponse] = useState<HelpItem | null>(null);
   const [tourStep, setTourStep] = useState<number | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dismissPanel = useCallback(() => {
+    setOpen(false);
+    setMinimized(false);
+    setTourStep(null);
+  }, []);
+  useDismissableLayer(open, dismissPanel, panelRef);
 
   if (!session || !questions.length || pathname === '/login') return null;
 
@@ -111,13 +120,13 @@ export function RunshowAssistant() {
 
   const tour = tourStep === null ? null : tourSteps[tourStep];
 
-  return <div className="fixed bottom-4 right-4 z-[70] flex flex-col items-end gap-3 sm:bottom-6 sm:right-6" aria-live="polite">
+  return <div ref={panelRef} className="fixed bottom-4 right-4 z-[70] flex flex-col items-end gap-3 sm:bottom-6 sm:right-6" aria-live="polite">
     {open && !minimized && <section className="assistant-panel flex max-h-[min(72dvh,580px)] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-card)] text-[var(--text-primary)] shadow-2xl" aria-label="RUNSHOW guided help">
       <header className="flex items-center gap-3 border-b border-[var(--divider)] px-4 py-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--success-surface)]"><Mascot small /></span>
         <div className="min-w-0 flex-1"><h2 className="text-sm font-semibold">RUNSHOW Guide</h2><p className="text-xs text-[var(--text-secondary)]">Guided help · {role === 'sub_organizer' ? 'Sub-organizer' : role === 'participant' ? 'Participant' : 'Organizer'}</p></div>
-        <button type="button" onClick={() => setMinimized(true)} className="focus-ring rounded-md p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]" aria-label="Minimize help panel"><ChevronDown className="h-4 w-4" /></button>
-        <button type="button" onClick={() => { setOpen(false); setTourStep(null); }} className="focus-ring rounded-md p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]" aria-label="Close help panel"><X className="h-4 w-4" /></button>
+        <Tooltip label="Minimize help panel" side="top"><button type="button" onClick={() => setMinimized(true)} className="focus-ring rounded-md p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]" aria-label="Minimize help panel"><ChevronDown className="h-4 w-4" aria-hidden="true" /></button></Tooltip>
+        <Tooltip label="Close help panel" side="top"><button type="button" onClick={() => { setOpen(false); setTourStep(null); }} className="focus-ring rounded-md p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]" aria-label="Close help panel"><X className="h-4 w-4" aria-hidden="true" /></button></Tooltip>
       </header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         <p className="rounded-lg bg-[var(--surface-elevated)] p-3 text-sm text-[var(--text-secondary)]">I’m your in-app guide. Pick a question or follow a short tour of your workspace.</p>
@@ -126,7 +135,7 @@ export function RunshowAssistant() {
           <h3 className="mt-1 font-semibold">{tour.title}</h3><p className="mt-1 text-sm text-[var(--text-secondary)]">{tour.detail}</p>
           <div className="mt-3 flex gap-2"><button type="button" onClick={advanceTour} className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--action-primary-fill)] px-3 py-2 text-sm font-medium text-[var(--action-primary-foreground)]">{tourStep === tourSteps.length - 1 ? 'Finish tour' : 'Next'}<ArrowRight className="h-4 w-4" /></button><button type="button" onClick={() => setTourStep(null)} className="focus-ring rounded-full px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]">Exit</button></div>
         </div>}
-        {response && !tour && <div className="rounded-lg border border-[var(--border)] p-3"><p className="text-xs font-medium text-[var(--action-primary)]">{response.question}</p><p className="mt-1 text-sm text-[var(--text-primary)]">{response.answer}</p>{response.action && <button type="button" onClick={() => navigate(response.target)} className="focus-ring mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--action-primary-fill)] px-3 py-2 text-sm font-medium text-[var(--action-primary-foreground)]">{response.action}<ArrowRight className="h-4 w-4" /></button>}</div>}
+        {response && !tour && <div className="rounded-lg border border-[var(--border)] p-3"><p className="text-xs font-medium text-[var(--action-primary)]">{response.question}</p><p className="mt-1 text-sm text-[var(--text-primary)]">{response.answer}</p>{response.action && <button type="button" onClick={() => { navigate(response.target); dismissPanel(); }} className="focus-ring mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--action-primary-fill)] px-3 py-2 text-sm font-medium text-[var(--action-primary-foreground)]">{response.action}<ArrowRight className="h-4 w-4" /></button>}</div>}
         <div><h3 className="mb-2 text-xs font-semibold uppercase text-[var(--text-secondary)]">Quick help</h3><div className="space-y-1.5">{questions.map(item => <button type="button" key={item.question} onClick={() => { setTourStep(null); setResponse(item); }} className="focus-ring flex w-full items-center justify-between gap-3 rounded-md border border-[var(--border)] px-3 py-2.5 text-left text-sm transition-colors hover:border-[var(--action-primary)]/50 hover:bg-[var(--surface-elevated)]"><span>{item.question}</span><ArrowRight className="h-4 w-4 shrink-0 text-[var(--action-primary)]" /></button>)}</div></div>
         <button type="button" onClick={startTour} className="focus-ring flex w-full items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2.5 text-sm font-medium transition-colors hover:bg-[var(--surface-elevated)]"><HelpCircle className="h-4 w-4 text-[var(--action-primary)]" />{tourStep === null ? 'Start guided tour' : 'Restart guided tour'}</button>
         <p className="text-xs text-[var(--text-muted)]">Guided tutorial assistance. No AI service is connected.</p>

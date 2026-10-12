@@ -504,15 +504,6 @@ export function LoginPage() {
                 </form>
               </CardContent>
 
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-800" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-slate-900/50 text-slate-500">Demo mode — no real authentication</span>
-                </div>
-              </div>
-
               <p className="text-center text-sm text-slate-400">
                 {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
                 <Button
@@ -538,29 +529,6 @@ export function LoginPage() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Demo accounts hint */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5, duration: 0.3 }}
-          className="mt-6 text-center"
-        >
-          <details className="text-slate-500 text-sm">
-            <summary className="cursor-pointer flex items-center justify-center gap-1.5 hover:text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              Demo accounts for testing
-            </summary>
-            <div className="mt-3 p-3 text-left bg-slate-900/50 rounded-lg border border-slate-800/50 text-xs space-y-1">
-              <p className="font-medium text-slate-300">Pre-configured demo emails:</p>
-              <p><span className="font-mono text-cyan-400">organizer@demo.com</span> — Organizer role</p>
-              <p><span className="font-mono text-cyan-400">suborg@demo.com</span> — Sub-organizer (Marketing)</p>
-              <p><span className="font-mono text-cyan-400">participant@demo.com</span> — Participant role</p>
-              <p className="mt-2 text-slate-500">Or enter any email to simulate a new user</p>
-            </div>
-          </details>
-        </motion.div>
       </motion.div>
     </div>
   );

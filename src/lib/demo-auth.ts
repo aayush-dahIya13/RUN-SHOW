@@ -162,6 +162,30 @@ export async function createDemoSubOrganizer(name: string, email: string) {
   return { account: safeAccount, password };
 }
 
+export async function createDemoParticipant(name: string, email: string, password: string) {
+  const cleanName = name.trim();
+  const cleanEmail = email.trim().toLowerCase();
+  if (cleanName.length < 2) throw new Error('Enter a name with at least two characters.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw new Error('Enter a valid email address.');
+  if (password.length < 8) throw new Error('Choose a password with at least 8 characters.');
+  if (allAccountRecords().some(account => account.email === cleanEmail)) throw new Error('An account with this email already exists.');
+  if (!globalThis.crypto?.subtle) throw new Error('Secure browser crypto is unavailable. Use localhost or HTTPS to create demo accounts.');
+
+  const salt = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+  const account: StoredAccount = {
+    id: `demo-participant-${crypto.randomUUID()}`,
+    email: cleanEmail,
+    name: cleanName,
+    role: 'participant',
+    active: true,
+    createdAt: new Date().toISOString(),
+    passwordSalt: salt,
+    passwordHash: await passwordDigest(password, salt),
+  };
+  saveAccounts([...storedAccounts(), account]);
+  return { id: account.id, email: account.email, name: account.name, role: account.role } satisfies DemoSession;
+}
+
 export function setDemoAccountActive(accountId: string, active: boolean) {
   const account = allAccountRecords().find(candidate => candidate.id === accountId);
   if (!account || account.role !== 'sub_organizer') throw new Error('Only sub-organizer demo accounts can be deactivated here.');

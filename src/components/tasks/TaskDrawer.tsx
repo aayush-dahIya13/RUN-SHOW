@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { X, CheckCircle, Clock, User, Flag, AlertTriangle, Target, ArrowRight } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { Task, DrawerState } from '@/lib/types';
@@ -30,8 +30,9 @@ interface TaskDrawerProps {
 
 export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
   const { completeTask } = useDashboardStore();
+  const reduceMotion = useReducedMotion();
 
-  if (!state.isOpen || !state.task) return null;
+  if (!state.task) return null;
 
   const task = state.task;
   const isCompleted = task.status === 'completed';
@@ -44,21 +45,21 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
   return (
     <>
       <AnimatePresence>
+      {state.isOpen && <>
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          transition={{ duration: reduceMotion ? 0 : 0.18 }}
+          className="fixed inset-0 z-50 bg-[var(--metallic-black)]/50"
           onClick={onClose}
           aria-hidden="true"
         />
-      </AnimatePresence>
-      <AnimatePresence>
         <motion.aside
-        initial={{ x: '100%' }}
+        initial={reduceMotion ? false : { x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
         className="fixed right-0 top-0 z-50 h-dvh w-full max-w-2xl bg-[var(--surface-card)] border-l border-[var(--border)] flex flex-col overflow-hidden"
         role="dialog"
         aria-modal="true"
@@ -166,6 +167,7 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
           </div>
         </div>
       </motion.aside>
+      </>}
     </AnimatePresence>
   </>
   );

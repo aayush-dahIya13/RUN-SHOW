@@ -55,6 +55,8 @@
   --surface-elevated-gradient: linear-gradient(145deg, var(--surface-elevated), color-mix(in srgb, var(--snow-white) 92%, var(--grey)));
   --surface-glass: color-mix(in srgb, var(--surface-card) 90%, transparent);
   --surface-highlight: color-mix(in srgb, var(--snow-white) 72%, transparent);
+  --tooltip-bg: var(--metallic-black);
+  --tooltip-fg: var(--snow-white);
 
   --background: var(--page-bg);
   --foreground: var(--text-primary);
@@ -89,6 +91,8 @@
     --surface-elevated-gradient: linear-gradient(145deg, var(--surface-elevated), color-mix(in srgb, var(--metallic-black) 76%, var(--grey)));
     --surface-glass: color-mix(in srgb, var(--surface-card) 90%, transparent);
     --surface-highlight: color-mix(in srgb, var(--snow-white) 5%, transparent);
+    --tooltip-bg: var(--surface-elevated);
+    --tooltip-fg: var(--snow-white);
     color-scheme: dark;
   }
 }
@@ -120,6 +124,8 @@
   --surface-elevated-gradient: linear-gradient(145deg, var(--surface-elevated), color-mix(in srgb, var(--metallic-black) 76%, var(--grey)));
   --surface-glass: color-mix(in srgb, var(--surface-card) 90%, transparent);
   --surface-highlight: color-mix(in srgb, var(--snow-white) 5%, transparent);
+  --tooltip-bg: var(--surface-elevated);
+  --tooltip-fg: var(--snow-white);
   color-scheme: dark;
 }
 
@@ -139,10 +145,40 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+button:not(:disabled),
+a[href],
+select:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="radio"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+html,
+body,
+aside,
+header,
+main,
+.runshow-card {
+  transition-property: background-color, color, border-color, box-shadow;
+  transition-duration: 180ms;
+  transition-timing-function: ease-out;
+}
+
 .runshow-card {
   background: var(--surface-card-gradient, var(--surface-card));
   border: 1px solid var(--border);
   box-shadow: 0 7px 20px var(--shadow-color), inset 0 1px 0 var(--surface-highlight);
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out, background-color 180ms ease-out;
+}
+
+.runshow-card:hover {
+  border-color: color-mix(in srgb, var(--action-primary) 30%, var(--border));
 }
 
 .runshow-card-glass {
@@ -154,6 +190,39 @@ body {
 .runshow-card-elevated {
   background: var(--surface-elevated-gradient, var(--surface-elevated));
   box-shadow: 0 12px 28px var(--shadow-color), inset 0 1px 0 var(--surface-highlight);
+}
+
+.runshow-calendar-preview {
+  isolation: isolate;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--action-primary) 32%, var(--border));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface-card) 91%, transparent), color-mix(in srgb, var(--surface-elevated) 88%, transparent));
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 48px var(--shadow-color), 0 0 0 1px color-mix(in srgb, var(--action-primary) 10%, transparent), inset 0 1px 0 var(--surface-highlight);
+}
+
+.runshow-calendar-preview::before {
+  position: absolute;
+  z-index: -1;
+  inset: -55%;
+  background: radial-gradient(ellipse at 24% 15%, color-mix(in srgb, var(--sea-green-soft) 16%, transparent), transparent 48%), radial-gradient(ellipse at 86% 12%, color-mix(in srgb, var(--snow-white) 9%, transparent), transparent 42%);
+  content: "";
+  pointer-events: none;
+  animation: runshow-calendar-sheen 12s ease-in-out infinite alternate;
+}
+
+@keyframes runshow-calendar-sheen {
+  from { transform: translate3d(-2%, -1%, 0) rotate(-2deg); }
+  to { transform: translate3d(3%, 2%, 0) rotate(2deg); }
+}
+
+@supports not (backdrop-filter: blur(18px)) {
+  .runshow-calendar-preview { background: var(--surface-card-gradient, var(--surface-card)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runshow-calendar-preview::before { animation: none; }
 }
 
 @supports not (backdrop-filter: blur(8px)) {
