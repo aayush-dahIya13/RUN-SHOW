@@ -19,11 +19,38 @@ import { DashboardOverviewSummary } from '@/components/dashboard/DashboardOvervi
 import { SettingsView } from '@/components/settings/SettingsView';
 import { RunshowAssistant } from '@/components/assistant/RunshowAssistant';
 import { HomeView } from '@/components/dashboard/HomeView';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Plus } from 'lucide-react';
 
 const VIEW_COMPONENTS = {
   home: () => <HomeView onCreateEvent={() => useDashboardStore.getState().setSelectedView('setup')} />,
   setup: () => <EventSetupWizard />,
-  overview: () => (
+  overview: () => <DashboardOverview />,
+  calendar: () => <CalendarView />,
+  'event-health': () => <EventHealthView />,
+  tasks: () => <Tasks />,
+  settings: () => <SettingsView />,
+  recommendations: () => <Recommendations />,
+  partners: () => <PartnerOverview />,
+  operations: () => (
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <RiskCentre />
+      <Tasks />
+    </div>
+  ),
+};
+
+function DashboardOverview() {
+  const events = useDashboardStore(state => state.events);
+  const setSelectedView = useDashboardStore(state => state.setSelectedView);
+  if (events.length === 0) return <Card padding="lg" className="mx-auto max-w-2xl text-center">
+    <h2 className="text-xl font-semibold text-[var(--text-primary)]">No events yet</h2>
+    <p className="mt-2 text-sm text-[var(--text-secondary)]">Create an event to see its registrations, schedule, tasks and operational status here.</p>
+    <Button className="mt-5" onClick={() => setSelectedView('setup')}><Plus className="h-4 w-4" aria-hidden="true" />Create Event</Button>
+  </Card>;
+
+  return (
     <div className="space-y-6">
       <DashboardOverviewSummary />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -39,20 +66,8 @@ const VIEW_COMPONENTS = {
       <PartnerOverview />
       <Recommendations />
     </div>
-  ),
-  calendar: () => <CalendarView />,
-  'event-health': () => <EventHealthView />,
-  tasks: () => <Tasks />,
-  settings: () => <SettingsView />,
-  recommendations: () => <Recommendations />,
-  partners: () => <PartnerOverview />,
-  operations: () => (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <RiskCentre />
-      <Tasks />
-    </div>
-  ),
-};
+  );
+}
 
 const VIEW_TITLES: Record<keyof typeof VIEW_COMPONENTS, string> = {
   home: 'Home',
@@ -74,6 +89,7 @@ function TaskDrawerHost() {
 
 export function DashboardLayout() {
   const selectedView = useDashboardStore(state => state.selectedView);
+  const hasEvents = useDashboardStore(state => state.events.length > 0);
   const setSelectedView = useDashboardStore(state => state.setSelectedView);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const shellRef = React.useRef<HTMLDivElement>(null);
@@ -120,7 +136,7 @@ export function DashboardLayout() {
 
         <main ref={contentRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-4 pb-24 sm:p-6 sm:pb-28 lg:p-8 lg:pb-28" role="main">
           <div key={selectedView} className="space-y-6">
-            {(selectedView === 'overview' || selectedView === 'calendar') && <KPICards />}
+            {hasEvents && (selectedView === 'overview' || selectedView === 'calendar') && <KPICards />}
             <ViewComponent />
           </div>
         </main>
