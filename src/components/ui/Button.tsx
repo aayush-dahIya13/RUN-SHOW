@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, ButtonHTMLAttributes } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -11,10 +11,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = '', variant = 'primary', size = 'md', loading = false, disabled, children, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:ring-offset-2 focus:ring-offset-[var(--page-bg)] disabled:opacity-50 disabled:cursor-not-allowed';
+    const reduceMotion = useReducedMotion();
+    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:ring-offset-2 focus:ring-offset-[var(--page-bg)] disabled:opacity-50 disabled:cursor-not-allowed';
     
     const variants = {
-      primary: 'bg-[var(--action-primary)] text-[var(--action-primary-foreground)] hover:bg-[var(--action-primary-hover)] active:bg-[var(--action-primary-active)]',
+      primary: 'bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)] hover:bg-[var(--action-primary-fill-hover)] active:bg-[var(--action-primary-fill-active)]',
       secondary: 'bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--neutral-surface)] active:bg-[var(--divider)]',
       ghost: 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] active:bg-[var(--neutral-surface)]',
       danger: 'bg-[var(--danger-surface)] text-[var(--danger)] border border-[var(--accent)] hover:bg-[var(--accent-muted)] active:bg-[var(--neutral-surface)]',
@@ -33,7 +34,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
         disabled={disabled || loading}
-        whileTap={{ scale: 0.98 }}
+        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
         {...props}
       >
         {loading && (

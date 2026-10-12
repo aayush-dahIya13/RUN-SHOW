@@ -59,12 +59,12 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="fixed right-0 top-0 z-50 h-full w-full max-w-2xl bg-[var(--surface-card)] border-l border-[var(--border)] flex flex-col overflow-hidden"
+        className="fixed right-0 top-0 z-50 h-dvh w-full max-w-2xl bg-[var(--surface-card)] border-l border-[var(--border)] flex flex-col overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
       >
-        <div className="flex items-start justify-between p-6 border-b border-[var(--divider)]">
+        <div className="flex items-start justify-between gap-3 p-4 sm:p-6 border-b border-[var(--divider)]">
           <div className="flex-1 pr-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">{state.type}</span>
@@ -79,13 +79,13 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           <div>
             <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-2">Description</h3>
             <p className="text-[var(--text-secondary)] leading-relaxed">{task.description}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Assignee</label>
               <div className="flex items-center gap-2">

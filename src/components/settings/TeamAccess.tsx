@@ -100,7 +100,7 @@ export function TeamAccess() {
   }
 
   return <section className="space-y-4" aria-labelledby="team-access-title">
-    <div><h2 id="team-access-title" className="text-lg font-semibold text-[var(--text-primary)]">Team &amp; Access</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Create local demo accounts and assign them event functions. Assignments reference shared event IDs.</p></div>
+    <div><h2 id="team-access-title" className="runshow-scroll-heading text-2xl font-semibold text-[var(--text-primary)]">Team &amp; Access</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Create local demo accounts and assign them event functions. Assignments reference shared event IDs.</p></div>
     <Card padding="md">
       <form onSubmit={submit} className="space-y-4">
         <div className="flex items-center gap-2"><UserPlus className="h-5 w-5 text-[var(--action-primary)]" aria-hidden="true" /><h3 className="font-semibold text-[var(--text-primary)]">{editingId ? 'Edit assignment' : 'Create account or assign function'}</h3></div>

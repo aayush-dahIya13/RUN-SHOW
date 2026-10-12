@@ -57,11 +57,9 @@ const initialTeamAssignments: TeamAssignment[] = [{
 }];
 const initialParticipantEvents: ParticipantEventLink[] = [
   { accountId: 'demo-participant', eventId: DEMO_EVENT.id },
-  ...(!api.isUsingApi() ? [{ accountId: 'demo-participant', eventId: 'runshow-demo-upcoming' }] : []),
 ];
 const initialAnnouncements: Announcement[] = [
   { id: 'announcement-demo-techsprint', eventId: DEMO_EVENT.id, title: 'Demo event update', message: 'The participant schedule is available. Check-in begins at 8:30 AM at the main entrance.', publishedAt: new Date().toISOString(), isDemo: true },
-  { id: 'announcement-demo-forum', eventId: 'runshow-demo-upcoming', title: 'Venue details pending', message: 'This demo event venue is not yet confirmed. Check back for an organizer update.', publishedAt: new Date().toISOString(), isDemo: true },
 ];
 
 function calculateDaysRemaining(date: string): number {
@@ -465,9 +463,10 @@ export const useDashboardStore = create<StoreState>()(
     }),
     {
       name: 'eventpilot-dashboard-store',
-      version: 3,
+      version: 4,
       migrate: (persisted) => {
         const old = persisted as Partial<StoreState>;
+        const removedDemoEventId = 'runshow-demo-upcoming';
         const restoreEvent = (saved: Event): Event => {
           const seed = initialEvents.find(item => item.id === saved.id);
           return seed ? {
@@ -477,15 +476,16 @@ export const useDashboardStore = create<StoreState>()(
             participantInstructions: saved.participantInstructions ?? seed.participantInstructions,
           } : saved;
         };
-        const persistedEvent = restoreEvent(old.event ?? DEMO_EVENT);
+        const savedEvent = old.event ?? DEMO_EVENT;
+        const persistedEvent = savedEvent.id === removedDemoEventId ? DEMO_EVENT : restoreEvent(savedEvent);
         const eventsById = new Map<string, Event>();
-        for (const item of [...initialEvents, ...(old.events ?? []).map(restoreEvent), persistedEvent]) eventsById.set(item.id, item);
+        for (const item of [...initialEvents, ...(old.events ?? []).filter(item => item.id !== removedDemoEventId).map(restoreEvent), persistedEvent]) eventsById.set(item.id, item);
         const events = [...eventsById.values()];
-        const eventId = old.selectedEventId && eventsById.has(old.selectedEventId) ? old.selectedEventId : persistedEvent.id;
+        const eventId = old.selectedEventId && old.selectedEventId !== removedDemoEventId && eventsById.has(old.selectedEventId) ? old.selectedEventId : persistedEvent.id;
         const selectedEvent = eventsById.get(eventId) ?? persistedEvent;
-        const tasks = (old.tasks ?? initialTasks).map(task => ({ ...task, eventId: task.eventId ?? persistedEvent.id }));
-        const risks = (old.risks ?? initialRisks).map(risk => ({ ...risk, eventId: risk.eventId ?? persistedEvent.id }));
-        const recommendations = (old.recommendations ?? initialRecommendations).map(item => ({ ...item, eventId: item.eventId ?? persistedEvent.id }));
+        const tasks = (old.tasks ?? initialTasks).filter(task => task.eventId !== removedDemoEventId).map(task => ({ ...task, eventId: task.eventId ?? persistedEvent.id }));
+        const risks = (old.risks ?? initialRisks).filter(risk => risk.eventId !== removedDemoEventId).map(risk => ({ ...risk, eventId: risk.eventId ?? persistedEvent.id }));
+        const recommendations = (old.recommendations ?? initialRecommendations).filter(item => item.eventId !== removedDemoEventId).map(item => ({ ...item, eventId: item.eventId ?? persistedEvent.id }));
         return {
           selectedRole: old.selectedRole ?? 'leadership',
           selectedView: old.selectedView ?? 'overview',
@@ -496,9 +496,9 @@ export const useDashboardStore = create<StoreState>()(
           event: selectedEvent,
           events,
           selectedEventId: eventId,
-          teamAssignments: old.teamAssignments ?? initialTeamAssignments,
-          participantEvents: old.participantEvents ?? initialParticipantEvents,
-          announcements: old.announcements ?? initialAnnouncements,
+          teamAssignments: (old.teamAssignments ?? initialTeamAssignments).filter(item => item.eventId !== removedDemoEventId),
+          participantEvents: (old.participantEvents ?? initialParticipantEvents).filter(item => item.eventId !== removedDemoEventId),
+          announcements: (old.announcements ?? initialAnnouncements).filter(item => item.eventId !== removedDemoEventId),
           generatedPlan: old.generatedPlan ?? null,
         };
       },

@@ -1,7 +1,7 @@
 'use client';
 
 import { HTMLAttributes, forwardRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'glass' | 'elevated';
@@ -11,10 +11,11 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ className = '', variant = 'default', padding = 'md', hover = false, children, ...props }, ref) => {
+    const reduceMotion = useReducedMotion();
     const variants = {
-      default: 'bg-[var(--surface-card)] border border-[var(--border)]',
-      glass: 'bg-[var(--surface-card)]/85 backdrop-blur-sm border border-[var(--border)]',
-      elevated: 'bg-[var(--surface-elevated)] border border-[var(--border)] shadow-xl shadow-[var(--shadow-color)]',
+      default: 'runshow-card',
+      glass: 'runshow-card runshow-card-glass',
+      elevated: 'runshow-card runshow-card-elevated',
     };
 
     const paddings = {
@@ -30,8 +31,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <MotionDiv
         ref={ref}
         className={`${variants[variant]} ${paddings[padding]} rounded-xl ${className}`}
-        whileHover={hover ? { y: -2 } : undefined}
-        transition={hover ? { duration: 0.2 } : undefined}
+        whileHover={hover && !reduceMotion ? { y: -2 } : undefined}
+        transition={hover && !reduceMotion ? { duration: 0.2 } : undefined}
         {...props}
       >
         {children}

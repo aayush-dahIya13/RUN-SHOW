@@ -146,7 +146,7 @@ export interface OutreachDataPoint {
 
 export interface DashboardState {
   selectedRole: Role;
-  selectedView: 'setup' | 'overview' | 'calendar' | 'event-health' | 'settings' | 'recommendations' | 'tasks' | 'partners' | 'operations';
+  selectedView: 'home' | 'setup' | 'overview' | 'calendar' | 'event-health' | 'settings' | 'recommendations' | 'tasks' | 'partners' | 'operations';
   risks: Risk[];
   recommendations: Recommendation[];
   tasks: Task[];
