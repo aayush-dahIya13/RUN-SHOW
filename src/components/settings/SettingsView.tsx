@@ -15,11 +15,11 @@ export function SettingsView() {
   const { resetToDefaults, setSelectedView, isUsingApi } = useDashboardStore();
   const [resetMessage, setResetMessage] = useState('');
 
-  function resetDemoData() {
-    if (!window.confirm('Reset organizer workspace data to the original demo data? Your login and theme preference will be kept.')) return;
+  function resetWorkspaceData() {
+    if (!window.confirm('Clear locally stored organizer events, tasks, risks and recommendations? Your login and theme preference will be kept.')) return;
     resetToDefaults();
     setSelectedView('settings');
-    setResetMessage('Demo workspace data has been reset.');
+    setResetMessage('Local workspace data has been cleared.');
   }
 
   return <div className="max-w-3xl space-y-5">
@@ -33,15 +33,15 @@ export function SettingsView() {
     </Card>
 
     <Card padding="md">
-      <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--surface-elevated)] text-[var(--text-secondary)]"><UserRound className="h-5 w-5" aria-hidden="true" /></span><div><h2 className="font-semibold text-[var(--text-primary)]">Account</h2><p className="text-sm text-[var(--text-secondary)]">Signed-in demo profile</p></div></div>
+      <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--surface-elevated)] text-[var(--text-secondary)]"><UserRound className="h-5 w-5" aria-hidden="true" /></span><div><h2 className="font-semibold text-[var(--text-primary)]">Account</h2><p className="text-sm text-[var(--text-secondary)]">Signed-in profile</p></div></div>
       <dl className="mt-5 grid gap-4 border-t border-[var(--divider)] pt-4 sm:grid-cols-2"><div><dt className="text-xs text-[var(--text-secondary)]">Name</dt><dd className="mt-1 text-sm font-medium text-[var(--text-primary)]">{session?.name ?? 'Organizer'}</dd></div><div><dt className="text-xs text-[var(--text-secondary)]">Email</dt><dd className="mt-1 break-all text-sm font-medium text-[var(--text-primary)]">{session?.email ?? 'Not available'}</dd></div><div><dt className="text-xs text-[var(--text-secondary)]">Role</dt><dd className="mt-1 text-sm font-medium capitalize text-[var(--text-primary)]">{session?.role ?? 'Organizer'}</dd></div><div><dt className="text-xs text-[var(--text-secondary)]">Environment</dt><dd className="mt-1 text-sm font-medium text-[var(--text-primary)]">Local prototype</dd></div></dl>
     </Card>
 
     {session?.role === 'organizer' && <TeamAccess />}
 
     {!isUsingApi && <Card padding="md">
-      <h2 className="font-semibold text-[var(--text-primary)]">Demo workspace data</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">This only resets locally stored organizer demo events, tasks, risks and recommendations. It does not clear your account session or appearance preference.</p>
-      <div className="mt-4 flex flex-wrap items-center gap-3"><Button variant="secondary" onClick={resetDemoData}><RotateCcw className="h-4 w-4" aria-hidden="true" />Reset demo data</Button>{resetMessage && <p role="status" className="text-sm text-[var(--action-primary)]">{resetMessage}</p>}</div>
+      <h2 className="font-semibold text-[var(--text-primary)]">Local workspace data</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Clear locally stored events, tasks, risks and recommendations. Your account session and appearance preference are kept.</p>
+      <div className="mt-4 flex flex-wrap items-center gap-3"><Button variant="secondary" onClick={resetWorkspaceData}><RotateCcw className="h-4 w-4" aria-hidden="true" />Clear workspace data</Button>{resetMessage && <p role="status" className="text-sm text-[var(--action-primary)]">{resetMessage}</p>}</div>
     </Card>}
   </div>;
 }

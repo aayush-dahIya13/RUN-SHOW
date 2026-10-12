@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell, ChevronDown, LogOut, Menu, Plus, UserRound } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { clearDemoSession, useDemoSession } from '@/lib/demo-auth';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from './ThemeToggle';
+import { useDismissableLayer } from '@/components/ui/useDismissableLayer';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 interface HeaderProps {
   title: string;
@@ -19,16 +21,23 @@ interface HeaderProps {
 export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar, sidebarOpen }: HeaderProps) {
   const router = useRouter();
   const event = useDashboardStore(state => state.event);
+  const eventIsAvailable = useDashboardStore(state => state.events.some(item => item.id === state.event.id));
   const notifications = useDashboardStore(state => state.notifications);
   const markNotificationRead = useDashboardStore(state => state.markNotificationRead);
   const session = useDemoSession();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
+  const closeUserMenu = useCallback(() => setUserMenuOpen(false), []);
+  useDismissableLayer(notificationsOpen, closeNotifications, notificationsRef);
+  useDismissableLayer(userMenuOpen, closeUserMenu, userMenuRef);
   const unreadCount = notifications.filter(notification => !notification.read).length;
   const displayName = typeof session?.name === 'string' && session.name.trim() ? session.name.trim() : 'Organizer';
   const displayEmail = typeof session?.email === 'string' && session.email.trim() ? session.email.trim() : 'Account details unavailable';
   const roleLabel = session?.role === 'sub_organizer' ? 'Sub-organizer' : session?.role === 'participant' ? 'Participant' : 'Organizer';
-  const eventName = typeof event?.name === 'string' && event.name.trim() ? event.name.trim() : '';
+  const eventName = eventIsAvailable && typeof event?.name === 'string' && event.name.trim() ? event.name.trim() : '';
   const eventStart = [event?.startDate, event?.date].find(value => typeof value === 'string' && value.trim());
   const eventEnd = [event?.endDate, event?.startDate, event?.date].find(value => typeof value === 'string' && value.trim());
   const formatDate = (value: string | undefined) => {
@@ -63,8 +72,8 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
           <div className="min-w-0">
             <h1 className="runshow-scroll-heading truncate text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
             {eventName && (
-              <p className="hidden max-w-[min(38vw,32rem)] truncate text-xs text-[var(--text-secondary)] lg:block" title={eventDateSummary ? `${eventName} | ${eventDateSummary}` : eventName}>
-                {eventName}{eventDateSummary ? ` | ${eventDateSummary}` : ''}{event?.isDemo ? ' | Demo' : ''}
+              <p className="hidden max-w-[min(38vw,32rem)] truncate text-xs text-[var(--text-secondary)] lg:block">
+                {eventName}{eventDateSummary ? ` | ${eventDateSummary}` : ''}
               </p>
             )}
           </div>
@@ -84,7 +93,8 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
             </Button>
           )}
 
-          <div className="relative">
+          <div ref={notificationsRef} className="relative">
+            <Tooltip label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'} side="bottom" enabled={!notificationsOpen}>
             <Button
               type="button"
               variant="ghost"
@@ -102,12 +112,13 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
                 </span>
               )}
             </Button>
+            </Tooltip>
             {notificationsOpen && notifications.length > 0 && (
               <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2 shadow-xl shadow-[var(--shadow-color)] sm:w-80" role="menu" aria-label="Notifications">
                 <div className="flex items-center justify-between border-b border-[var(--divider)] px-3 py-2">
                   <h2 className="font-semibold text-[var(--text-primary)]">Notifications</h2>
                   {unreadCount > 0 && (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => notifications.forEach(notification => markNotificationRead(notification.id))}>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => { notifications.forEach(notification => markNotificationRead(notification.id)); setNotificationsOpen(false); }}>
                       Mark all read
                     </Button>
                   )}
@@ -117,7 +128,7 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
                     <button
                       key={notification.id}
                       type="button"
-                      onClick={() => markNotificationRead(notification.id)}
+                      onClick={() => { markNotificationRead(notification.id); setNotificationsOpen(false); }}
                       className="w-full rounded-md px-3 py-3 text-left hover:bg-[var(--neutral-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]"
                       role="menuitem"
                     >
@@ -137,7 +148,7 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
           </div>
 
           <ThemeToggle />
-          <div className="relative hidden sm:block">
+          <div ref={userMenuRef} className="relative hidden sm:block">
             <button
               type="button"
               className="flex max-w-52 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]"
