@@ -12,12 +12,12 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className = '', variant = 'default', size = 'md', dot = false, children, ...props }, ref) => {
     const variants = {
-      default: 'bg-slate-800 text-slate-300 border border-slate-700',
-      success: 'bg-green-500/15 text-green-400 border border-green-500/30',
-      warning: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
-      danger: 'bg-red-500/15 text-red-400 border border-red-500/30',
-      info: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30',
-      neutral: 'bg-zinc-800 text-zinc-400 border border-zinc-700',
+      default: 'bg-[var(--neutral-surface)] text-[var(--text-primary)] border border-[var(--border)]',
+      success: 'bg-[var(--success-surface)] text-[var(--action-primary)] border border-[var(--action-primary)]',
+      warning: 'bg-[var(--accent-muted)] text-[var(--accent-foreground)] border border-[var(--accent)]',
+      danger: 'bg-[var(--danger-surface)] text-[var(--danger)] border border-[var(--accent)]',
+      info: 'bg-[var(--success-surface)] text-[var(--action-primary)] border border-[var(--action-primary)]',
+      neutral: 'bg-[var(--neutral-surface)] text-[var(--text-secondary)] border border-[var(--border)]',
     };
 
     const sizes = {
@@ -37,7 +37,7 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
         {...props}
       >
         {dot && (
-          <span className={`w-1.5 h-1.5 rounded-full ${variant === 'success' ? 'bg-green-400' : variant === 'warning' ? 'bg-yellow-400' : variant === 'danger' ? 'bg-red-400' : variant === 'info' ? 'bg-cyan-400' : 'bg-slate-400'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${variant === 'success' || variant === 'info' ? 'bg-[var(--action-primary)]' : variant === 'warning' || variant === 'danger' ? 'bg-[var(--accent)]' : 'bg-[var(--text-secondary)]'}`} />
         )}
         {children}
       </MotionSpan>

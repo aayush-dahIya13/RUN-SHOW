@@ -11,13 +11,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = '', variant = 'primary', size = 'md', loading = false, disabled, children, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:ring-offset-2 focus:ring-offset-[var(--page-bg)] disabled:opacity-50 disabled:cursor-not-allowed';
     
     const variants = {
-      primary: 'bg-cyan-500 text-slate-950 hover:bg-cyan-400 active:bg-cyan-600 focus:ring-cyan-500',
-      secondary: 'bg-slate-800 text-slate-100 border border-slate-700 hover:bg-slate-700 active:bg-slate-600 focus:ring-slate-500',
-      ghost: 'bg-transparent text-slate-300 hover:bg-slate-800 active:bg-slate-700 focus:ring-slate-500',
-      danger: 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 active:bg-red-500/40 focus:ring-red-500',
+      primary: 'bg-[var(--action-primary)] text-[var(--action-primary-foreground)] hover:bg-[var(--action-primary-hover)] active:bg-[var(--action-primary-active)]',
+      secondary: 'bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--neutral-surface)] active:bg-[var(--divider)]',
+      ghost: 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] active:bg-[var(--neutral-surface)]',
+      danger: 'bg-[var(--danger-surface)] text-[var(--danger)] border border-[var(--accent)] hover:bg-[var(--accent-muted)] active:bg-[var(--neutral-surface)]',
     };
 
     const sizes = {
@@ -34,7 +34,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
         disabled={disabled || loading}
         whileTap={{ scale: 0.98 }}
-        whileHover={variant !== 'ghost' ? { boxShadow: '0 0 20px rgba(6, 182, 212, 0.3)' } : undefined}
         {...props}
       >
         {loading && (

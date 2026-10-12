@@ -51,22 +51,22 @@ function RiskCard({ risk, index, onClick }: RiskCardProps) {
         onClick={onClick}
         className={`w-full p-4 rounded-xl border transition-all duration-200 text-left ${
           SEVERITY_COLORS[risk.severity]
-        } hover:border-cyan-500/30 hover:bg-slate-800/30 focus:outline-none focus:ring-2 focus:ring-cyan-500/50`}
+        } hover:border-[var(--action-primary)]/40 hover:bg-[var(--surface-elevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]`}
         aria-pressed="false"
       >
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-900/50 border border-slate-800 flex items-center justify-center">
-            <SeverityIcon className="w-5 h-5" style={{ color: risk.severity === 'critical' ? '#ef4444' : risk.severity === 'high' ? '#f97316' : risk.severity === 'medium' ? '#eab308' : '#22c55e' }} aria-hidden="true" />
+          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-center">
+            <SeverityIcon className="w-5 h-5 text-[var(--danger)]" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <h4 className="font-semibold text-slate-100 truncate pr-2">{risk.title}</h4>
+              <h4 className="font-semibold text-[var(--text-primary)] truncate pr-2">{risk.title}</h4>
               <Badge variant="neutral" size="sm" className={SEVERITY_COLORS[risk.severity].replace('border-', '').replace('bg-', 'bg-').replace('text-', 'text-')}>
                 {SEVERITY_LABELS[risk.severity]}
               </Badge>
             </div>
-            <p className="text-sm text-slate-400 mt-1 line-clamp-2">{risk.reason}</p>
-            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-slate-500">
+            <p className="text-sm text-[var(--text-secondary)] mt-1 line-clamp-2">{risk.reason}</p>
+            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-[var(--text-muted)]">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" aria-hidden="true" />
                 {risk.deadline ? `Due: ${new Date(risk.deadline).toLocaleDateString()}` : 'No deadline'}
@@ -82,7 +82,7 @@ function RiskCard({ risk, index, onClick }: RiskCardProps) {
             </div>
           </div>
           <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <ExternalLink className="w-5 h-5 text-slate-500 hover:text-cyan-400" aria-hidden="true" />
+            <ExternalLink className="w-5 h-5 text-[var(--text-muted)] hover:text-[var(--action-primary)]" aria-hidden="true" />
           </div>
         </div>
       </button>
@@ -91,7 +91,7 @@ function RiskCard({ risk, index, onClick }: RiskCardProps) {
 }
 
 export function RiskCentre() {
-  const { risks, selectedRole, openDrawer } = useDashboardStore();
+  const { risks, selectedRole, openDrawer, event } = useDashboardStore();
   const [severityFilter, setSeverityFilter] = React.useState<RiskSeverity | 'all'>('all');
   const [statusFilter, setStatusFilter] = React.useState<RiskStatus | 'all'>('all');
 
@@ -99,11 +99,12 @@ export function RiskCentre() {
     const roleMatch = selectedRole === 'leadership' || risk.owner === selectedRole;
     const severityMatch = severityFilter === 'all' || risk.severity === severityFilter;
     const statusMatch = statusFilter === 'all' || risk.status === statusFilter;
-    return roleMatch && severityMatch && statusMatch;
+    return roleMatch && severityMatch && statusMatch && (!risk.eventId || risk.eventId === event.id);
   });
 
-  const criticalCount = risks.filter(r => r.severity === 'critical').length;
-  const highCount = risks.filter(r => r.severity === 'high').length;
+  const eventRisks = risks.filter(risk => !risk.eventId || risk.eventId === event.id);
+  const criticalCount = eventRisks.filter(r => r.severity === 'critical').length;
+  const highCount = eventRisks.filter(r => r.severity === 'high').length;
 
   return (
     <Card variant="glass" padding="none" className="h-full flex flex-col">
@@ -144,7 +145,7 @@ export function RiskCentre() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-6 pt-0 flex-1 overflow-y-auto">
+      <CardContent className="p-6 pt-0 flex-1">
         <AnimatePresence mode="popLayout">
           {filteredRisks.length > 0 ? (
             <div className="space-y-3" role="list" aria-label="Risks">
@@ -166,9 +167,9 @@ export function RiskCentre() {
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center py-12 text-center"
             >
-              <Filter className="w-12 h-12 text-slate-600 mb-4" aria-hidden="true" />
-              <p className="text-slate-400">No risks match your filters</p>
-              <p className="text-sm text-slate-500 mt-1">Try adjusting the severity or status filters</p>
+              <Filter className="w-12 h-12 text-[var(--text-muted)] mb-4" aria-hidden="true" />
+              <p className="text-[var(--text-secondary)]">No risks match your filters</p>
+              <p className="text-sm text-[var(--text-muted)] mt-1">Try adjusting the severity or status filters</p>
             </motion.div>
           )}
         </AnimatePresence>

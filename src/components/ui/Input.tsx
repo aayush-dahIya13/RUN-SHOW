@@ -15,7 +15,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-slate-300 mb-1.5">
+          <label htmlFor={inputId} className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
             {label}
           </label>
         )}
@@ -23,12 +23,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={`
-            w-full px-3 py-2 bg-slate-900/50 border rounded-lg
-            text-slate-100 placeholder:text-slate-500
-            focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500
+            w-full px-3 py-2 bg-[var(--surface-card)] border rounded-lg
+            text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]
+            focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:border-[var(--action-primary)]
             transition-colors duration-200
             disabled:opacity-50 disabled:cursor-not-allowed
-            ${error ? 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500' : 'border-slate-700'}
+            ${error ? 'border-[var(--accent)]' : 'border-[var(--border)]'}
             ${className}
           `}
           aria-invalid={error ? 'true' : 'false'}
@@ -36,12 +36,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-red-400" role="alert">
+          <p id={`${inputId}-error`} className="mt-1.5 text-sm text-[var(--danger)]" role="alert">
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-slate-500">
+          <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-[var(--text-secondary)]">
             {helperText}
           </p>
         )}
@@ -66,7 +66,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={selectId} className="block text-sm font-medium text-slate-300 mb-1.5">
+          <label htmlFor={selectId} className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
             {label}
           </label>
         )}
@@ -74,14 +74,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={selectId}
           className={`
-            w-full px-3 py-2 bg-slate-900/50 border rounded-lg
-            text-slate-100
-            focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500
+            w-full px-3 py-2 bg-[var(--surface-card)] border rounded-lg
+            text-[var(--text-primary)]
+            focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:border-[var(--action-primary)]
             transition-colors duration-200
             disabled:opacity-50 disabled:cursor-not-allowed
-            appearance-none
-            bg-[url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")] bg-no-repeat bg-right-3 bg-center pr-10
-            ${error ? 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500' : 'border-slate-700'}
+            appearance-auto pr-10
+            ${error ? 'border-[var(--accent)]' : 'border-[var(--border)]'}
             ${className}
           `}
           aria-invalid={error ? 'true' : 'false'}
@@ -93,12 +92,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ))}
         </select>
         {error && (
-          <p id={`${selectId}-error`} className="mt-1.5 text-sm text-red-400" role="alert">
+          <p id={`${selectId}-error`} className="mt-1.5 text-sm text-[var(--danger)]" role="alert">
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${selectId}-helper`} className="mt-1.5 text-sm text-slate-500">
+          <p id={`${selectId}-helper`} className="mt-1.5 text-sm text-[var(--text-secondary)]">
             {helperText}
           </p>
         )}
@@ -122,7 +121,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={textareaId} className="block text-sm font-medium text-slate-300 mb-1.5">
+          <label htmlFor={textareaId} className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
             {label}
           </label>
         )}
@@ -130,13 +129,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={textareaId}
           className={`
-            w-full px-3 py-2 bg-slate-900/50 border rounded-lg
-            text-slate-100 placeholder:text-slate-500
-            focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500
+            w-full px-3 py-2 bg-[var(--surface-card)] border rounded-lg
+            text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]
+            focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:border-[var(--action-primary)]
             transition-colors duration-200
             disabled:opacity-50 disabled:cursor-not-allowed
             resize-y min-h-[80px]
-            ${error ? 'border-red-500/50 focus:ring-red-500/50 focus:border-red-500' : 'border-slate-700'}
+            ${error ? 'border-[var(--accent)]' : 'border-[var(--border)]'}
             ${className}
           `}
           aria-invalid={error ? 'true' : 'false'}
@@ -144,12 +143,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         {error && (
-          <p id={`${textareaId}-error`} className="mt-1.5 text-sm text-red-400" role="alert">
+          <p id={`${textareaId}-error`} className="mt-1.5 text-sm text-[var(--danger)]" role="alert">
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${textareaId}-helper`} className="mt-1.5 text-sm text-slate-500">
+          <p id={`${textareaId}-helper`} className="mt-1.5 text-sm text-[var(--text-secondary)]">
             {helperText}
           </p>
         )}

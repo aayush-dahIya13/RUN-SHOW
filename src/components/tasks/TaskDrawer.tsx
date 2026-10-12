@@ -29,7 +29,7 @@ interface TaskDrawerProps {
 }
 
 export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
-  const { completeTask, updateTaskStatus, addNotification } = useDashboardStore();
+  const { completeTask } = useDashboardStore();
 
   if (!state.isOpen || !state.task) return null;
 
@@ -37,15 +37,7 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
   const isCompleted = task.status === 'completed';
 
   const handleComplete = () => {
-    if (task.id.startsWith('task-')) {
-      completeTask(task.id);
-    } else {
-      updateTaskStatus(task.id, 'completed');
-      addNotification({
-        message: `Task completed: ${task.title}`,
-        type: 'success',
-      });
-    }
+    completeTask(task.id);
     onClose();
   };
 
@@ -67,49 +59,49 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="fixed right-0 top-0 z-50 h-full w-full max-w-2xl bg-slate-950 border-l border-slate-800 flex flex-col overflow-y-auto"
+        className="fixed right-0 top-0 z-50 h-full w-full max-w-2xl bg-[var(--surface-card)] border-l border-[var(--border)] flex flex-col overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
       >
-        <div className="flex items-start justify-between p-6 border-b border-slate-800">
+        <div className="flex items-start justify-between p-6 border-b border-[var(--divider)]">
           <div className="flex-1 pr-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">{state.type}</span>
+              <span className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">{state.type}</span>
               <Badge variant="neutral" size="sm" className={PRIORITY_COLORS[task.priority]}>
                 {PRIORITY_LABELS[task.priority]}
               </Badge>
             </div>
-            <h2 id="drawer-title" className="text-xl font-bold text-slate-100">{task.title}</h2>
+            <h2 id="drawer-title" className="text-xl font-bold text-[var(--text-primary)]">{task.title}</h2>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} className="text-slate-400 hover:text-slate-100">
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
             <X className="w-5 h-5" aria-hidden="true" />
           </Button>
         </div>
 
-        <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 space-y-6">
           <div>
-            <h3 className="text-sm font-medium text-slate-400 mb-2">Description</h3>
-            <p className="text-slate-300 leading-relaxed">{task.description}</p>
+            <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-2">Description</h3>
+            <p className="text-[var(--text-secondary)] leading-relaxed">{task.description}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Assignee</label>
+              <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Assignee</label>
               <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-slate-400" aria-hidden="true" />
-                <span className="text-slate-100 font-medium">{task.assignee}</span>
+                <User className="w-4 h-4 text-[var(--text-secondary)]" aria-hidden="true" />
+                <span className="text-[var(--text-primary)] font-medium">{task.assignee}</span>
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Deadline</label>
+              <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Deadline</label>
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-slate-400" aria-hidden="true" />
-                <span className="text-slate-100 font-medium">{new Date(task.deadline).toLocaleDateString()}</span>
+                <Clock className="w-4 h-4 text-[var(--text-secondary)]" aria-hidden="true" />
+                <span className="text-[var(--text-primary)] font-medium">{new Date(task.deadline).toLocaleDateString()}</span>
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Status</label>
+              <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Status</label>
               <div className="flex items-center gap-2">
                 <Badge variant="neutral" size="sm" className={STATUS_COLORS[task.status]}>
                   {STATUS_LABELS[task.status]}
@@ -117,9 +109,9 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Priority</label>
+              <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Priority</label>
               <div className="flex items-center gap-2">
-                <Flag className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                <Flag className="w-4 h-4 text-[var(--text-secondary)]" aria-hidden="true" />
                 <Badge variant="neutral" size="sm" className={PRIORITY_COLORS[task.priority]}>
                   {PRIORITY_LABELS[task.priority]}
                 </Badge>
@@ -128,40 +120,40 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
           </div>
 
           {task.relatedRiskId && (
-            <div className="space-y-2 p-4 rounded-lg bg-slate-900/50 border border-slate-800/50">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Related Risk</label>
+            <div className="space-y-2 p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+              <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Related Risk</label>
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-400" aria-hidden="true" />
+                <AlertTriangle className="w-5 h-5 text-[var(--danger)]" aria-hidden="true" />
                 <div>
-                  <p className="text-slate-100 font-medium">{task.relatedRiskId}</p>
-                  <p className="text-xs text-slate-400">Click to view risk details</p>
+                  <p className="text-[var(--text-primary)] font-medium">{task.relatedRiskId}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Click to view risk details</p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-500 ml-auto" aria-hidden="true" />
+                <ArrowRight className="w-4 h-4 text-[var(--text-muted)] ml-auto" aria-hidden="true" />
               </div>
             </div>
           )}
 
           {task.relatedRecommendationId && (
-            <div className="space-y-2 p-4 rounded-lg bg-slate-900/50 border border-slate-800/50">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Related Recommendation</label>
+            <div className="space-y-2 p-4 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)]">
+              <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Related Recommendation</label>
               <div className="flex items-center gap-3">
-                <Target className="w-5 h-5 text-cyan-400" aria-hidden="true" />
+                <Target className="w-5 h-5 text-[var(--action-primary)]" aria-hidden="true" />
                 <div>
-                  <p className="text-slate-100 font-medium">{task.relatedRecommendationId}</p>
-                  <p className="text-xs text-slate-400">Click to view recommendation</p>
+                  <p className="text-[var(--text-primary)] font-medium">{task.relatedRecommendationId}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Click to view recommendation</p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-500 ml-auto" aria-hidden="true" />
+                <ArrowRight className="w-4 h-4 text-[var(--text-muted)] ml-auto" aria-hidden="true" />
               </div>
             </div>
           )}
 
-          <div className="pt-4 border-t border-slate-800/50">
+          <div className="pt-4 border-t border-[var(--divider)]">
             {state.type === 'risk' ? (
               <Button variant="secondary" className="w-full" onClick={onClose}>
                 Back to Risk Centre
               </Button>
             ) : isCompleted ? (
-              <div className="flex items-center justify-center gap-2 text-green-400 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+              <div className="flex items-center justify-center gap-2 text-[var(--action-primary)] p-4 rounded-lg bg-[var(--success-surface)] border border-[var(--action-primary)]/30">
                 <CheckCircle className="w-5 h-5" aria-hidden="true" />
                 <span className="font-medium">Task completed</span>
               </div>
