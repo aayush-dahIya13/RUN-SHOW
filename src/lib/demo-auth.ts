@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { AccountRole } from './types';
 
 export type DemoRole = AccountRole;
-export interface DemoSession { id: string; email: string; name: string; role: DemoRole }
+export interface DemoSession { id: string; email: string; name: string; role: DemoRole; isDemo?: boolean }
 export interface DemoAccount extends DemoSession { password: string }
 export interface DemoAccountRecord extends DemoSession { active: boolean; createdAt: string }
 interface StoredAccount extends DemoAccountRecord { passwordSalt?: string; passwordHash?: string }
@@ -78,7 +78,7 @@ function readSessionFromStorage(): DemoSession | null {
       discardStoredSession();
       return null;
     }
-    return { id: account.id, email: account.email, name: account.name, role: account.role };
+    return { id: account.id, email: account.email, name: account.name, role: account.role, isDemo: account.isDemo };
   } catch {
     discardStoredSession();
     return null;
