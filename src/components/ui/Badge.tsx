@@ -4,7 +4,7 @@ import { HTMLAttributes, forwardRef } from 'react';
 import { motion } from 'motion/react';
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'secondary' | 'outline';
   size?: 'sm' | 'md';
   dot?: boolean;
 }
@@ -18,6 +18,8 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
       danger: 'bg-[var(--danger-surface)] text-[var(--danger)] border border-[var(--accent)]',
       info: 'bg-[var(--success-surface)] text-[var(--action-primary)] border border-[var(--action-primary)]',
       neutral: 'bg-[var(--neutral-surface)] text-[var(--text-secondary)] border border-[var(--border)]',
+      secondary: 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)]',
+      outline: 'bg-transparent text-[var(--text-secondary)] border border-[var(--border)]',
     };
 
     const sizes = {

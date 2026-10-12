@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'system';
 
 const THEME_STORAGE_KEY = 'runshow-theme';
 
@@ -20,17 +20,20 @@ function readStoredTheme(): Theme | null {
 const listeners = new Set<() => void>();
 
 function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.style.colorScheme = theme;
+  const resolvedTheme = theme === 'system' ? getSystemTheme() : theme;
+  document.documentElement.dataset.theme = resolvedTheme;
+  document.documentElement.style.colorScheme = resolvedTheme;
   listeners.forEach(listener => listener());
 }
 
 function getSnapshot(): Theme {
-  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+  const stored = document.documentElement.dataset.theme;
+  if (stored === 'dark' || stored === 'light' || stored === 'system') return stored as Theme;
+  return 'light';
 }
 
 function getServerSnapshot(): Theme {
-  return 'light';
+  return 'system';
 }
 
 function subscribe(listener: () => void) {

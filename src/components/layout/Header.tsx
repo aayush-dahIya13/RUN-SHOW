@@ -56,6 +56,43 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
     router.replace('/login');
   };
 
+  // Coordinate popups: opening one closes the other
+  const openNotifications = () => {
+    setUserMenuOpen(false);
+    setNotificationsOpen(true);
+  };
+
+  const toggleNotifications = () => {
+    if (notificationsOpen) {
+      closeNotifications();
+    } else {
+      openNotifications();
+    }
+  };
+
+  const openUserMenu = () => {
+    setNotificationsOpen(false);
+    setUserMenuOpen(true);
+  };
+
+  const toggleUserMenu = () => {
+    if (userMenuOpen) {
+      closeUserMenu();
+    } else {
+      openUserMenu();
+    }
+  };
+
+  const handleNotificationClick = (notificationId: string) => {
+    markNotificationRead(notificationId);
+    closeNotifications();
+  };
+
+  const handleMarkAllRead = () => {
+    notifications.forEach(notification => markNotificationRead(notification.id));
+    closeNotifications();
+  };
+
   return (
     <header className="z-20 shrink-0 border-b border-[var(--divider)] bg-[var(--page-bg)]">
       <div className="flex min-h-20 flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-6">
@@ -97,23 +134,23 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
 
           <div ref={notificationsRef} className="relative">
             <Tooltip label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'} side="bottom" enabled={!notificationsOpen}>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="relative h-10 w-10 p-0"
-              onClick={() => setNotificationsOpen(open => !open)}
-              aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
-              aria-expanded={notificationsOpen}
-              aria-haspopup="menu"
-            >
-              <Bell className="h-5 w-5" aria-hidden="true" />
-              {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent)] px-1 text-xs font-semibold text-[var(--accent-foreground)]">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="relative h-10 w-10 p-0"
+                onClick={toggleNotifications}
+                aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+                aria-expanded={notificationsOpen}
+                aria-haspopup="menu"
+              >
+                <Bell className="h-5 w-5" aria-hidden="true" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent)] px-1 text-xs font-semibold text-[var(--accent-foreground)]">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Button>
             </Tooltip>
             <AnimatePresence>
             {notificationsOpen && notifications.length > 0 && (
@@ -121,7 +158,7 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
                 <div className="flex items-center justify-between border-b border-[var(--divider)] px-3 py-2">
                   <h2 className="font-semibold text-[var(--text-primary)]">Notifications</h2>
                   {unreadCount > 0 && (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => { notifications.forEach(notification => markNotificationRead(notification.id)); setNotificationsOpen(false); }}>
+                    <Button type="button" variant="ghost" size="sm" onClick={handleMarkAllRead}>
                       Mark all read
                     </Button>
                   )}
@@ -131,7 +168,7 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
                     <button
                       key={notification.id}
                       type="button"
-                      onClick={() => { markNotificationRead(notification.id); setNotificationsOpen(false); }}
+                      onClick={() => handleNotificationClick(notification.id)}
                       className="w-full rounded-md px-3 py-3 text-left hover:bg-[var(--neutral-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]"
                       role="menuitem"
                     >
@@ -156,7 +193,7 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
             <button
               type="button"
               className="flex max-w-52 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]"
-              onClick={() => setUserMenuOpen(open => !open)}
+              onClick={toggleUserMenu}
               aria-expanded={userMenuOpen}
               aria-haspopup="menu"
               aria-label={`Account menu for ${displayName}`}
@@ -180,8 +217,8 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
             )}
             </AnimatePresence>
           </div>
-          </div>
         </div>
-      </header>
+      </div>
+    </header>
   );
 }
