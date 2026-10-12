@@ -161,13 +161,12 @@ export function Tasks() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-2">
             <CardTitle>Tasks</CardTitle>
-            <Badge variant="neutral" size="sm">Demo Data</Badge>
           </div>
           <CardDescription className="mt-1 ml-0 sm:mt-0 sm:ml-2">
             {pendingCount} pending, {inProgressCount} in progress, {completedCount} completed
           </CardDescription>
           <div className="flex flex-wrap gap-2">
-            <Select value={eventFilter} onChange={e => setEventFilter(e.target.value)} options={[{ value: 'all', label: 'All Events' }, ...events.map(item => ({ value: item.id, label: `${item.name}${item.isDemo ? ' (Demo)' : ''}` }))]} className="w-full min-w-0 sm:w-auto sm:min-w-[160px] sm:max-w-64" aria-label="Filter tasks by event" />
+            <Select value={eventFilter} onChange={e => setEventFilter(e.target.value)} options={[{ value: 'all', label: 'All Events' }, ...events.map(item => ({ value: item.id, label: item.name }))]} className="w-full min-w-0 sm:w-auto sm:min-w-[160px] sm:max-w-64" aria-label="Filter tasks by event" />
             <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TaskStatus | 'all')} options={[{ value: 'all', label: 'All Statuses' }, { value: 'pending', label: 'Pending' }, { value: 'in-progress', label: 'In Progress' }, { value: 'completed', label: 'Completed' }, { value: 'blocked', label: 'Blocked' }]} className="w-full min-w-0 sm:w-auto sm:min-w-[150px]" aria-label="Filter tasks by status" />
             <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value as Role | 'all')} options={[{ value: 'all', label: 'All Roles' }, { value: 'marketing', label: 'Marketing' }, { value: 'partnerships', label: 'Partnerships' }, { value: 'operations', label: 'Operations' }, { value: 'programme', label: 'Programme' }, { value: 'leadership', label: 'Leadership' }]} className="w-full min-w-0 sm:w-auto sm:min-w-[150px]" aria-label="Filter tasks by role" />
           </div>
