@@ -17,7 +17,7 @@ export function ProtectedRoute({ role, children }: { role: DemoRole; children: R
   if (!authorized) {
     return (
       <main className="min-h-screen grid place-items-center bg-[var(--page-bg)] text-[var(--text-secondary)]" aria-live="polite">
-        Checking demo session…
+        Checking account…
       </main>
     );
   }
