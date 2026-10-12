@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, Bell, Menu, Plus, UserRound } from 'lucide-react';
+import { format, isValid, parseISO } from 'date-fns';
+import { ArrowLeft, Bell, Menu, Plus, UserRound, User, LogOut, ChevronDown } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { useDemoSession } from '@/lib/demo-auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
-import { useDashboardStore } from '@/lib/dashboard-state';
 import { useAuthStore } from '@/lib/auth-store';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from './ThemeToggle';
@@ -25,14 +24,12 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
   const session = useDemoSession();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const unreadCount = notifications.filter(notification => !notification.read).length;
-<<<<<<< HEAD
   const start = parseISO(event.startDate || event.date);
   const end = parseISO(event.endDate || event.startDate || event.date);
   const dateSummary = !isValid(start) ? 'Dates not set' : isValid(end) && format(start, 'yyyy-MM-dd') !== format(end, 'yyyy-MM-dd')
     ? `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`
     : format(start, 'MMM d, yyyy');
   const { user, logout } = useAuthStore();
-  const unreadCount = notifications.filter(n => !n.read).length;
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const getRoleLabel = (role: string) => {
@@ -49,8 +46,6 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
     return labels[role] || role;
   };
 
-=======
->>>>>>> f383f58 (the updation)
   return (
     <header className="z-20 shrink-0 border-b border-[var(--divider)] bg-[var(--page-bg)]">
       <div className="flex min-h-20 flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-6">
@@ -192,7 +187,6 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
             </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
   );
 }
