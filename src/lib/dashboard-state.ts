@@ -2,8 +2,9 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Role, Task, DashboardState, Notification, DrawerState, KPIData, Recommendation, Risk, Event, EventPlan } from './types';
+import { Role, Task, DashboardState, Notification, DrawerState, KPIData, Recommendation, Risk, Event, EventPlan, TeamAssignment, ParticipantEventLink, Announcement } from './types';
 import { DEMO_EVENT, DEMO_RISKS, DEMO_RECOMMENDATIONS, DEMO_TASKS } from './demo-data';
+import { demoCalendarEvents } from './event-utils';
 import { calculateKPIs, simulateRegistrationOutcome } from './calculations';
 import { generateRecommendations } from './recommendation-rules';
 import { api } from './api';
@@ -13,12 +14,19 @@ interface StoreState extends DashboardState {
   kpis: KPIData;
   drawer: DrawerState;
   event: Event;
+  events: Event[];
+  selectedEventId: string;
+  teamAssignments: TeamAssignment[];
+  participantEvents: ParticipantEventLink[];
+  announcements: Announcement[];
   isUsingApi: boolean;
   generatedPlan: EventPlan | null;
   isSubmittingEvent: boolean;
   setupError: string | null;
   setSelectedRole: (role: Role) => void;
   setSelectedView: (view: DashboardState['selectedView']) => void;
+  selectEvent: (eventId: string) => void;
+  saveTeamAssignment: (assignment: TeamAssignment) => void;
   setGeneratedPlan: (plan: EventPlan | null) => void;
   confirmEventPlan: (plan: EventPlan) => Promise<Event>;
   openDrawer: (task: Task, type?: DrawerState['type']) => void;
@@ -39,7 +47,22 @@ interface StoreState extends DashboardState {
 
 const initialRisks = [...DEMO_RISKS];
 const initialRecommendations = [...DEMO_RECOMMENDATIONS];
-const initialTasks = [...DEMO_TASKS];
+const initialTasks = DEMO_TASKS.map(task => ({ ...task, eventId: DEMO_EVENT.id }));
+const initialEvents = api.isUsingApi()
+  ? [{ ...DEMO_EVENT, isDemo: true }]
+  : [{ ...DEMO_EVENT, isDemo: true }, ...demoCalendarEvents()];
+const initialTeamAssignments: TeamAssignment[] = [{
+  id: 'assignment-demo-gaming', accountId: 'demo-suborganizer', eventId: DEMO_EVENT.id,
+  functionName: 'Gaming', responsibilities: ['operations', 'programme'], active: true,
+}];
+const initialParticipantEvents: ParticipantEventLink[] = [
+  { accountId: 'demo-participant', eventId: DEMO_EVENT.id },
+  ...(!api.isUsingApi() ? [{ accountId: 'demo-participant', eventId: 'runshow-demo-upcoming' }] : []),
+];
+const initialAnnouncements: Announcement[] = [
+  { id: 'announcement-demo-techsprint', eventId: DEMO_EVENT.id, title: 'Demo event update', message: 'The participant schedule is available. Check-in begins at 8:30 AM at the main entrance.', publishedAt: new Date().toISOString(), isDemo: true },
+  { id: 'announcement-demo-forum', eventId: 'runshow-demo-upcoming', title: 'Venue details pending', message: 'This demo event venue is not yet confirmed. Check back for an organizer update.', publishedAt: new Date().toISOString(), isDemo: true },
+];
 
 function calculateDaysRemaining(date: string): number {
   const today = new Date();
@@ -65,50 +88,60 @@ function mergeRecommendations(generated: Omit<Recommendation, 'id'>[], existingM
 }
 
 const syncCompleteTask = (set: (partial: StoreState | Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void, get: () => StoreState, taskId: string) => {
-  const { tasks, event, risks, recommendations } = get();
+  const { tasks, event, events, risks, recommendations } = get();
   const task = tasks.find((t: Task) => t.id === taskId);
   if (!task || task.status === 'completed') return;
+  const taskEvent = events.find(item => item.id === task.eventId) ?? event;
 
   const updatedTasks = tasks.map((t: Task) =>
     t.id === taskId ? { ...t, status: 'completed' as const } : t
   );
 
-  let updatedEvent = { ...event };
+  let updatedEvent = { ...taskEvent };
   let updatedRisks = [...risks];
   const updatedRecommendations = [...recommendations];
 
   if (task.relatedRiskId) {
     updatedRisks = updatedRisks.map((r: Risk) =>
-      r.id === task.relatedRiskId ? { ...r, status: 'mitigated' as const } : r
+      r.id === task.relatedRiskId && (!r.eventId || r.eventId === taskEvent.id) ? { ...r, status: 'mitigated' as const } : r
     );
   }
 
-  if (taskId === 'task-1' || taskId === 'task-6') {
+  if ((taskId === 'task-1' || taskId === 'task-6') && taskEvent.id === DEMO_EVENT.id) {
     updatedEvent = {
       ...updatedEvent,
       currentRegistrations: simulateRegistrationOutcome(updatedEvent.currentRegistrations, taskId),
     };
   }
 
-  if (taskId === 'task-2') {
+  if (taskId === 'task-2' && taskEvent.id === DEMO_EVENT.id) {
     updatedEvent = { ...updatedEvent, venueConfirmed: true };
     updatedRisks = updatedRisks.map((r: Risk) =>
-      r.id === 'risk-2' ? { ...r, status: 'mitigated' as const } : r
+      r.id === 'risk-2' && (!r.eventId || r.eventId === taskEvent.id) ? { ...r, status: 'mitigated' as const } : r
     );
   }
 
-  if (taskId === 'task-3') {
+  if (taskId === 'task-3' && taskEvent.id === DEMO_EVENT.id) {
     updatedEvent = { ...updatedEvent, partnerConfirmations: updatedEvent.partnerConfirmations + 1 };
     updatedRisks = updatedRisks.map((r: Risk) =>
-      r.id === 'risk-3' ? { ...r, status: 'mitigated' as const } : r
+      r.id === 'risk-3' && (!r.eventId || r.eventId === taskEvent.id) ? { ...r, status: 'mitigated' as const } : r
     );
   }
 
-  const newKpis = calculateKPIs(updatedEvent, updatedTasks);
+  const selectedEvent = updatedEvent.id === event.id ? updatedEvent : event;
+  const selectedTasks = updatedTasks.filter(item => item.eventId === selectedEvent.id);
+  const newKpis = calculateKPIs(selectedEvent, selectedTasks);
 
   const existingRecMap = buildRecommendationMap(updatedRecommendations);
-  const generatedRecs = generateRecommendations(updatedEvent, updatedRisks, updatedTasks);
-  const mergedRecommendations = mergeRecommendations(generatedRecs, existingRecMap);
+  const generatedRecs = updatedEvent.id === event.id
+    ? generateRecommendations(updatedEvent, updatedRisks.filter(item => !item.eventId || item.eventId === updatedEvent.id), updatedTasks.filter(item => item.eventId === updatedEvent.id))
+    : [];
+  const mergedRecommendations = updatedEvent.id === event.id
+    ? [
+        ...updatedRecommendations.filter(item => item.eventId !== updatedEvent.id),
+        ...mergeRecommendations(generatedRecs, existingRecMap).map(item => ({ ...item, eventId: updatedEvent.id })),
+      ]
+    : updatedRecommendations;
 
   const newNotification: Notification = {
     id: `notif-${Date.now()}`,
@@ -120,7 +153,8 @@ const syncCompleteTask = (set: (partial: StoreState | Partial<StoreState> | ((st
 
   set({
     tasks: updatedTasks,
-    event: updatedEvent,
+    event: selectedEvent,
+    events: events.map(item => item.id === updatedEvent.id ? updatedEvent : item),
     risks: updatedRisks,
     recommendations: mergedRecommendations,
     kpis: newKpis,
@@ -131,8 +165,11 @@ const syncCompleteTask = (set: (partial: StoreState | Partial<StoreState> | ((st
 const syncRegenerateRecommendations = (set: (partial: StoreState | Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void, get: () => StoreState) => {
   const { event, risks, tasks, recommendations } = get();
   const existingRecMap = buildRecommendationMap(recommendations);
-  const generatedRecs = generateRecommendations(event, risks, tasks);
-  const mergedRecommendations = mergeRecommendations(generatedRecs, existingRecMap);
+  const generatedRecs = generateRecommendations(event, risks.filter(item => !item.eventId || item.eventId === event.id), tasks.filter(item => item.eventId === event.id));
+  const mergedRecommendations = [
+    ...recommendations.filter(item => item.eventId !== event.id),
+    ...mergeRecommendations(generatedRecs, existingRecMap).map(item => ({ ...item, eventId: event.id })),
+  ];
   set({ recommendations: mergedRecommendations });
 };
 
@@ -140,14 +177,19 @@ export const useDashboardStore = create<StoreState>()(
   persist(
     (set, get) => ({
       selectedRole: 'leadership',
-      selectedView: 'setup',
-      risks: initialRisks,
-      recommendations: initialRecommendations,
+      selectedView: 'overview',
+      risks: initialRisks.map(risk => ({ ...risk, eventId: DEMO_EVENT.id })),
+      recommendations: initialRecommendations.map(recommendation => ({ ...recommendation, eventId: DEMO_EVENT.id })),
       tasks: initialTasks,
+      events: initialEvents,
+      selectedEventId: DEMO_EVENT.id,
+      teamAssignments: initialTeamAssignments,
+      participantEvents: initialParticipantEvents,
+      announcements: initialAnnouncements,
       notifications: [],
       kpis: calculateKPIs(DEMO_EVENT, initialTasks),
       drawer: { isOpen: false, task: null, type: 'task' },
-      event: { ...DEMO_EVENT },
+      event: { ...DEMO_EVENT, isDemo: true },
       isUsingApi: api.isUsingApi(),
       generatedPlan: null,
       isSubmittingEvent: false,
@@ -156,6 +198,17 @@ export const useDashboardStore = create<StoreState>()(
       setSelectedRole: (role) => set({ selectedRole: role }),
 
       setSelectedView: (view) => set({ selectedView: view }),
+
+      selectEvent: (eventId) => {
+        const selected = get().events.find(item => item.id === eventId);
+        if (!selected) return;
+        const tasks = get().tasks.filter(task => task.eventId === eventId);
+        set({ selectedEventId: eventId, event: selected, kpis: calculateKPIs(selected, tasks) });
+      },
+
+      saveTeamAssignment: (assignment) => set(state => ({
+        teamAssignments: [...state.teamAssignments.filter(item => item.id !== assignment.id), assignment],
+      })),
 
       setGeneratedPlan: (plan) => set({ generatedPlan: plan, setupError: null }),
 
@@ -173,6 +226,7 @@ export const useDashboardStore = create<StoreState>()(
             endDate: draft.endDate,
             targetRegistrations: draft.targetRegistrations,
             currentRegistrations: draft.currentRegistrations,
+            participantCapacity: draft.participantCapacity,
             partnerConfirmations: Math.max(0, Math.floor(draft.expectedPartners * 0.35)),
             totalPartners: draft.expectedPartners,
             venueConfirmed: Boolean(draft.venue.trim()),
@@ -183,6 +237,8 @@ export const useDashboardStore = create<StoreState>()(
             successMetrics: plan.successMetrics,
             budget: draft.budget,
             operationalRequirements: draft.operationalRequirements,
+            sessions: draft.sessions,
+            participantInstructions: draft.sessions?.length ? 'Follow the published participant schedule and check event-day venue details before arrival.' : undefined,
           };
 
           const createdEvent = get().isUsingApi
@@ -192,9 +248,14 @@ export const useDashboardStore = create<StoreState>()(
           const event = {
             ...createdEvent,
             daysRemaining: calculateDaysRemaining(createdEvent.date),
+            isDemo: !get().isUsingApi,
+            sessions: draft.sessions?.map((session, index) => ({ ...session, id: `${createdEvent.id}-session-${index + 1}` })),
           };
           const recommendations = recommendationsFromPlan(plan);
-          const kpis = calculateKPIs(event, plan.tasks);
+          const eventTasks = plan.tasks.map(task => ({ ...task, eventId: event.id }));
+          const eventRisks = plan.risks.map(risk => ({ ...risk, eventId: event.id }));
+          const eventRecommendations = recommendations.map(recommendation => ({ ...recommendation, eventId: event.id }));
+          const kpis = calculateKPIs(event, eventTasks);
           const notification: Notification = {
             id: `notif-${Date.now()}`,
             message: `${event.name} created and opened in the command centre`,
@@ -205,9 +266,14 @@ export const useDashboardStore = create<StoreState>()(
 
           set({
             event,
-            tasks: plan.tasks,
-            risks: plan.risks,
-            recommendations,
+            events: [...get().events.filter(item => item.id !== event.id), event],
+            participantEvents: !get().isUsingApi && !get().participantEvents.some(link => link.accountId === 'demo-participant' && link.eventId === event.id)
+              ? [...get().participantEvents, { accountId: 'demo-participant', eventId: event.id }]
+              : get().participantEvents,
+            selectedEventId: event.id,
+            tasks: [...get().tasks, ...eventTasks],
+            risks: [...get().risks, ...eventRisks],
+            recommendations: [...get().recommendations, ...eventRecommendations],
             kpis,
             selectedRole: 'leadership',
             selectedView: 'overview',
@@ -232,12 +298,22 @@ export const useDashboardStore = create<StoreState>()(
       completeTask: async (taskId) => {
         if (get().isUsingApi) {
           try {
+            const taskEventId = get().tasks.find(task => task.id === taskId)?.eventId ?? get().selectedEventId;
             const result = await api.completeTask(taskId, {
               registrationsAdded: taskId === 'task-1' ? 50 : taskId === 'task-6' ? 25 : 0,
               source: 'simulated',
             });
-            const newKpis = calculateKPIs(result.event, result.task.status === 'completed' ? 
-              get().tasks.map(t => t.id === taskId ? { ...t, status: 'completed' as const } : t) : get().tasks);
+            const updatedTasks = get().tasks.map((task: Task) => task.id === taskId ? { ...task, status: 'completed' as const } : task);
+            const selectedEvent = taskEventId === get().selectedEventId ? result.event : get().event;
+            const updatedRisks = [
+              ...get().risks.filter(risk => risk.eventId !== taskEventId),
+              ...result.risks.map(risk => ({ ...risk, eventId: taskEventId })),
+            ];
+            const updatedRecommendations = [
+              ...get().recommendations.filter(item => item.eventId !== taskEventId),
+              ...result.recommendations.map(item => ({ ...item, eventId: taskEventId })),
+            ];
+            const newKpis = calculateKPIs(selectedEvent, updatedTasks.filter(task => task.eventId === selectedEvent.id));
             const newNotification: Notification = {
               id: `notif-${Date.now()}`,
               message: `Task completed: ${result.task.title}`,
@@ -246,10 +322,11 @@ export const useDashboardStore = create<StoreState>()(
               read: false,
             };
             set({
-              tasks: get().tasks.map((t: Task) => t.id === taskId ? { ...t, status: 'completed' as const } : t),
-              event: result.event,
-              risks: result.risks,
-              recommendations: result.recommendations,
+              tasks: updatedTasks,
+              event: selectedEvent,
+              events: get().events.map(item => item.id === result.event.id ? result.event : item),
+              risks: updatedRisks,
+              recommendations: updatedRecommendations,
               kpis: newKpis,
               notifications: [newNotification, ...get().notifications].slice(0, 10),
             });
@@ -265,11 +342,15 @@ export const useDashboardStore = create<StoreState>()(
       completeTaskSync: (taskId) => syncCompleteTask(set, get, taskId),
 
       updateTaskStatus: async (taskId, status) => {
+        if (status === 'completed') {
+          await get().completeTask(taskId);
+          return;
+        }
         if (get().isUsingApi) {
           try {
             const updatedTask = await api.updateTaskStatus(taskId, status);
             set(state => ({
-              tasks: state.tasks.map(t => t.id === taskId ? updatedTask : t),
+              tasks: state.tasks.map(t => t.id === taskId ? { ...updatedTask, eventId: updatedTask.eventId ?? t.eventId } : t),
             }));
           } catch (e) {
             console.error('API updateTaskStatus failed, falling back to sync:', e);
@@ -281,8 +362,13 @@ export const useDashboardStore = create<StoreState>()(
       },
 
       updateTaskStatusSync: (taskId, status) => {
+        if (status === 'completed') {
+          syncCompleteTask(set, get, taskId);
+          return;
+        }
         set(state => ({
           tasks: state.tasks.map(t => t.id === taskId ? { ...t, status } : t),
+          kpis: calculateKPIs(state.event, state.tasks.filter(task => task.eventId === state.event.id)),
         }));
       },
 
@@ -308,14 +394,15 @@ export const useDashboardStore = create<StoreState>()(
 
       recalculateKPIs: () => {
         const { event, tasks } = get();
-        set({ kpis: calculateKPIs(event, tasks) });
+        set({ kpis: calculateKPIs(event, tasks.filter(task => task.eventId === event.id)) });
       },
 
       regenerateRecommendations: async () => {
         if (get().isUsingApi) {
           try {
-            const recs = await api.regenerateRecommendations(get().event.id);
-            set({ recommendations: recs });
+            const eventId = get().event.id;
+            const recs = await api.regenerateRecommendations(eventId);
+            set({ recommendations: [...get().recommendations.filter(item => item.eventId !== eventId), ...recs.map(item => ({ ...item, eventId }))] });
           } catch (e) {
             console.error('API regenerateRecommendations failed, falling back to sync:', e);
             syncRegenerateRecommendations(set, get);
@@ -328,11 +415,11 @@ export const useDashboardStore = create<StoreState>()(
       regenerateRecommendationsSync: () => syncRegenerateRecommendations(set, get),
 
       simulateRegistrationIncrease: (taskId) => {
-        const { event, tasks } = get();
+        const { event, tasks, events } = get();
         const newRegistrations = simulateRegistrationOutcome(event.currentRegistrations, taskId);
         const updatedEvent = { ...event, currentRegistrations: newRegistrations };
-        const newKpis = calculateKPIs(updatedEvent, tasks);
-        set({ event: updatedEvent, kpis: newKpis });
+        const newKpis = calculateKPIs(updatedEvent, tasks.filter(task => task.eventId === event.id));
+        set({ event: updatedEvent, events: events.map(item => item.id === event.id ? updatedEvent : item), kpis: newKpis });
       },
 
       resetToDefaults: () => {
@@ -340,13 +427,18 @@ export const useDashboardStore = create<StoreState>()(
         set({
           selectedRole: 'leadership',
           selectedView: 'setup',
-          risks: [...initialRisks],
-          recommendations: [...initialRecommendations],
+          events: initialEvents,
+          selectedEventId: DEMO_EVENT.id,
+          teamAssignments: initialTeamAssignments,
+          participantEvents: initialParticipantEvents,
+          announcements: initialAnnouncements,
+          risks: initialRisks.map(risk => ({ ...risk, eventId: DEMO_EVENT.id })),
+          recommendations: initialRecommendations.map(recommendation => ({ ...recommendation, eventId: DEMO_EVENT.id })),
           tasks: [...initialTasks],
           notifications: [],
           kpis: newKpis,
           drawer: { isOpen: false, task: null, type: 'task' },
-          event: { ...DEMO_EVENT },
+          event: { ...DEMO_EVENT, isDemo: true },
           generatedPlan: null,
           isSubmittingEvent: false,
           setupError: null,
@@ -362,8 +454,9 @@ export const useDashboardStore = create<StoreState>()(
             api.getRecommendations(eventId),
             api.getTasks(eventId),
           ]);
-          const kpis = calculateKPIs(event, tasks);
-          set({ event, risks, recommendations, tasks, kpis, isUsingApi: true });
+          const apiEvent = { ...event, isDemo: false };
+          const apiTasks = tasks.map(task => ({ ...task, eventId: apiEvent.id }));
+          set({ event: apiEvent, events: [...get().events.filter(item => !item.isDemo && item.id !== apiEvent.id), apiEvent], selectedEventId: apiEvent.id, risks: risks.map(risk => ({ ...risk, eventId: apiEvent.id })), recommendations: recommendations.map(recommendation => ({ ...recommendation, eventId: apiEvent.id })), tasks: apiTasks, kpis: calculateKPIs(apiEvent, apiTasks), isUsingApi: true });
         } catch (e) {
           console.error('Failed to initialize from API, using demo data:', e);
           set({ isUsingApi: false });
@@ -372,6 +465,43 @@ export const useDashboardStore = create<StoreState>()(
     }),
     {
       name: 'eventpilot-dashboard-store',
+      version: 3,
+      migrate: (persisted) => {
+        const old = persisted as Partial<StoreState>;
+        const restoreEvent = (saved: Event): Event => {
+          const seed = initialEvents.find(item => item.id === saved.id);
+          return seed ? {
+            ...seed,
+            ...saved,
+            sessions: saved.sessions ?? seed.sessions,
+            participantInstructions: saved.participantInstructions ?? seed.participantInstructions,
+          } : saved;
+        };
+        const persistedEvent = restoreEvent(old.event ?? DEMO_EVENT);
+        const eventsById = new Map<string, Event>();
+        for (const item of [...initialEvents, ...(old.events ?? []).map(restoreEvent), persistedEvent]) eventsById.set(item.id, item);
+        const events = [...eventsById.values()];
+        const eventId = old.selectedEventId && eventsById.has(old.selectedEventId) ? old.selectedEventId : persistedEvent.id;
+        const selectedEvent = eventsById.get(eventId) ?? persistedEvent;
+        const tasks = (old.tasks ?? initialTasks).map(task => ({ ...task, eventId: task.eventId ?? persistedEvent.id }));
+        const risks = (old.risks ?? initialRisks).map(risk => ({ ...risk, eventId: risk.eventId ?? persistedEvent.id }));
+        const recommendations = (old.recommendations ?? initialRecommendations).map(item => ({ ...item, eventId: item.eventId ?? persistedEvent.id }));
+        return {
+          selectedRole: old.selectedRole ?? 'leadership',
+          selectedView: old.selectedView ?? 'overview',
+          risks,
+          recommendations,
+          tasks,
+          notifications: old.notifications ?? [],
+          event: selectedEvent,
+          events,
+          selectedEventId: eventId,
+          teamAssignments: old.teamAssignments ?? initialTeamAssignments,
+          participantEvents: old.participantEvents ?? initialParticipantEvents,
+          announcements: old.announcements ?? initialAnnouncements,
+          generatedPlan: old.generatedPlan ?? null,
+        };
+      },
       partialize: (state) => ({
         selectedRole: state.selectedRole,
         selectedView: state.selectedView,
@@ -380,6 +510,11 @@ export const useDashboardStore = create<StoreState>()(
         tasks: state.tasks,
         notifications: state.notifications,
         event: state.event,
+        events: state.events,
+        selectedEventId: state.selectedEventId,
+        teamAssignments: state.teamAssignments,
+        participantEvents: state.participantEvents,
+        announcements: state.announcements,
         generatedPlan: state.generatedPlan,
       }),
     }
