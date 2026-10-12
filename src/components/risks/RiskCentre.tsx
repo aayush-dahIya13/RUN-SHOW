@@ -112,7 +112,6 @@ export function RiskCentre() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-2">
             <CardTitle>Risk Centre</CardTitle>
-            <Badge variant="neutral" size="sm">Demo Data</Badge>
           </div>
           <CardDescription className="mt-1 ml-0 sm:mt-0 sm:ml-2">
             {criticalCount} critical, {highCount} high — prioritized by severity and ownership

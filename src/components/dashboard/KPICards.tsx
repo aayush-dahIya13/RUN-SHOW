@@ -45,7 +45,7 @@ function KPICard({ title, value, subtitle, icon, trend, variant = 'default', del
                 </Badge>
               )}
               {simulated && (
-                <Badge variant="warning" size="sm" className="self-start" title={simulatedLabel || 'Includes simulated outcomes'}>
+                <Badge variant="warning" size="sm" className="self-start" aria-label={simulatedLabel || 'Includes simulated outcomes'}>
                   <AlertCircle className="w-2.5 h-2.5" aria-hidden="true" />
                   <span className="text-xs">Sim</span>
                 </Badge>

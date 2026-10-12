@@ -21,6 +21,12 @@ export function PartnerOverview() {
 
   useEffect(() => {
     async function load() {
+      if (!isUsingApi || !event.id || event.id === 'no-selected-event') {
+        setPartners([]);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
       try {
         const data = await api.getPartners(event.id);
         setPartners(data);
@@ -31,7 +37,7 @@ export function PartnerOverview() {
       }
     }
     load();
-  }, [event.id]);
+  }, [event.id, isUsingApi]);
 
   const confirmedCount = partners.filter(p => p.status === 'confirmed').length;
   const pendingCount = partners.filter(p => p.status === 'pending').length;
@@ -58,8 +64,7 @@ export function PartnerOverview() {
               <div>
                 <CardTitle>Partner Confirmations</CardTitle>
                 <CardDescription className="flex items-center gap-2 mt-1">
-                  <Badge variant="neutral" size="sm">{isUsingApi ? 'Live Data' : 'Demo Data'}</Badge>
-                  <span>{isUsingApi ? 'Connected to backend' : 'Simulated partner data for TechSprint Delhi'}</span>
+                  <span>Partner confirmations for this event</span>
                 </CardDescription>
               </div>
             </div>
@@ -118,6 +123,7 @@ export function PartnerOverview() {
                 )}
               </motion.div>
             ))}
+            {!partners.length && <p className="col-span-full rounded-md border border-dashed border-[var(--border)] p-6 text-center text-sm text-[var(--text-secondary)]">No partner records are available for this event.</p>}
           </div>
         </CardContent>
       </Card>
