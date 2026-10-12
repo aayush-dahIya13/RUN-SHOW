@@ -99,7 +99,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       id="main-sidebar"
       role={isOpen ? 'dialog' : undefined}
       aria-modal={isOpen || undefined}
-      className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(18rem,calc(100vw-2rem))] max-w-full shrink-0 flex-col border-r border-[var(--divider)] bg-[var(--sidebar-bg)] transition-transform duration-200 motion-reduce:transition-none md:relative md:translate-x-0 ${collapsed ? 'md:w-20' : 'md:w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      className={`fixed inset-y-0 left-0 z-40 flex h-dvh min-h-0 w-[min(18rem,calc(100vw-2rem))] max-w-full shrink-0 flex-col border-r border-[var(--divider)] bg-[var(--sidebar-bg)] transition-[width,transform,background-color] duration-200 motion-reduce:transition-none md:relative md:translate-x-0 ${collapsed ? 'md:w-20' : 'md:w-64'} ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       aria-label="Main navigation"
     >
       <div className={`flex h-20 shrink-0 items-center justify-between gap-3 border-b border-[var(--divider)] px-4 md:h-24 ${collapsed ? 'md:flex-col md:justify-center md:gap-3 md:px-0' : ''}`}>

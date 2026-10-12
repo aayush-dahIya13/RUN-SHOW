@@ -2,47 +2,20 @@
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-
-type Side = 'top' | 'right' | 'bottom' | 'left';
-type Point = { left: number; top: number; side: Side };
+import { FloatingSide, FloatingPoint, getFloatingPosition } from '@/lib/floating-position';
 
 const TOOLTIP_EVENT = 'runshow:tooltip-open';
-const GAP = 9;
-const EDGE = 8;
 const subscribeToMount = () => () => {};
 const getClientMounted = () => true;
 const getServerMounted = () => false;
 
-function positionTooltip(trigger: DOMRect, tooltip: DOMRect, preferred: Side): Point {
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const candidates: Side[] = preferred === 'right' ? ['right', 'left', 'bottom', 'top']
-    : preferred === 'left' ? ['left', 'right', 'bottom', 'top']
-      : preferred === 'top' ? ['top', 'bottom', 'right', 'left'] : ['bottom', 'top', 'right', 'left'];
-  const place = (side: Side) => {
-    if (side === 'right') return { side, left: trigger.right + GAP, top: trigger.top + (trigger.height - tooltip.height) / 2 };
-    if (side === 'left') return { side, left: trigger.left - tooltip.width - GAP, top: trigger.top + (trigger.height - tooltip.height) / 2 };
-    if (side === 'top') return { side, left: trigger.left + (trigger.width - tooltip.width) / 2, top: trigger.top - tooltip.height - GAP };
-    return { side, left: trigger.left + (trigger.width - tooltip.width) / 2, top: trigger.bottom + GAP };
-  };
-  const fits = (point: Point) => point.left >= EDGE && point.top >= EDGE
-    && point.left + tooltip.width <= viewportWidth - EDGE
-    && point.top + tooltip.height <= viewportHeight - EDGE;
-  const point = candidates.map(place).find(fits) ?? place(candidates[0]);
-  return {
-    ...point,
-    left: Math.min(Math.max(EDGE, point.left), Math.max(EDGE, viewportWidth - tooltip.width - EDGE)),
-    top: Math.min(Math.max(EDGE, point.top), Math.max(EDGE, viewportHeight - tooltip.height - EDGE)),
-  };
-}
-
-export function Tooltip({ label, enabled = true, side = 'right', className = '', children }: { label: string; enabled?: boolean; side?: Side; className?: string; children: ReactNode }) {
+export function Tooltip({ label, enabled = true, side = 'right', className = '', children }: { label: string; enabled?: boolean; side?: FloatingSide; className?: string; children: ReactNode }) {
   const id = `runshow-tooltip-${useId().replace(/:/g, '')}`;
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const mounted = useSyncExternalStore(subscribeToMount, getClientMounted, getServerMounted);
-  const [point, setPoint] = useState<Point | null>(null);
+  const [point, setPoint] = useState<FloatingPoint | null>(null);
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
   const delayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,7 +31,7 @@ export function Tooltip({ label, enabled = true, side = 'right', className = '',
     const trigger = wrapperRef.current?.firstElementChild?.getBoundingClientRect() ?? wrapperRef.current?.getBoundingClientRect();
     const tooltip = tooltipRef.current?.getBoundingClientRect();
     if (!trigger || !tooltip) return;
-    const next = positionTooltip(trigger, tooltip, side);
+    const next = getFloatingPosition(trigger, tooltip, side);
     setPoint(current => current && current.left === next.left && current.top === next.top && current.side === next.side ? current : next);
   }, [side]);
 

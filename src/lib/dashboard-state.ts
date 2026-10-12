@@ -218,30 +218,36 @@ export const useDashboardStore = create<StoreState>()(
         try {
           const draft = plan.eventDraft;
           const localEvent: Omit<Event, 'id' | 'daysRemaining'> = {
-            name: draft.name,
-            type: draft.type,
+            name: draft.name.trim(),
+            type: draft.type.trim(),
             date: draft.startDate,
             startDate: draft.startDate,
             endDate: draft.endDate,
+            startTime: draft.startTime,
+            endTime: draft.endTime,
+            timezone: draft.timezone,
+            meetingUrl: draft.meetingUrl.trim() || undefined,
+            joiningInstructions: draft.joiningInstructions.trim() || undefined,
             targetRegistrations: draft.targetRegistrations,
             currentRegistrations: draft.currentRegistrations,
             participantCapacity: draft.participantCapacity,
-            partnerConfirmations: Math.max(0, Math.floor(draft.expectedPartners * 0.35)),
+            expectedAttendance: draft.expectedAttendance,
+            partnerConfirmations: 0,
             totalPartners: draft.expectedPartners,
             venueConfirmed: Boolean(draft.venue.trim()),
-            audience: draft.audience,
+            audience: draft.audience.trim(),
             format: draft.format,
-            venue: draft.venue,
+            venue: draft.venue.trim() || undefined,
             objectives: draft.objectives.split(/\n|,/).map(item => item.trim()).filter(Boolean),
             successMetrics: plan.successMetrics,
             budget: draft.budget,
-            operationalRequirements: draft.operationalRequirements,
+            operationalRequirements: draft.operationalRequirements.trim() || undefined,
             sessions: draft.sessions,
             participantInstructions: draft.sessions?.length ? 'Follow the published participant schedule and check event-day venue details before arrival.' : undefined,
           };
 
           const createdEvent = get().isUsingApi
-            ? await api.createEvent(localEvent)
+            ? await api.createEvent(localEvent, plan.tasks)
             : await api.createEvent(localEvent);
 
           const event = {
@@ -250,10 +256,20 @@ export const useDashboardStore = create<StoreState>()(
             isDemo: false,
             sessions: draft.sessions?.map((session, index) => ({ ...session, id: `${createdEvent.id}-session-${index + 1}` })),
           };
-          const recommendations = recommendationsFromPlan(plan);
-          const eventTasks = plan.tasks.map(task => ({ ...task, eventId: event.id }));
-          const eventRisks = plan.risks.map(risk => ({ ...risk, eventId: event.id }));
-          const eventRecommendations = recommendations.map(recommendation => ({ ...recommendation, eventId: event.id }));
+          const taskIdMap = new Map(plan.tasks.map((task, index) => [task.id, `${event.id}-task-${index + 1}`]));
+          const eventTasks = plan.tasks.map((task, index) => ({ ...task, id: `${event.id}-task-${index + 1}`, eventId: event.id }));
+          const eventRisks = plan.risks.map((risk, index) => ({
+            ...risk,
+            id: `${event.id}-risk-${index + 1}`,
+            eventId: event.id,
+            relatedTaskId: risk.relatedTaskId ? taskIdMap.get(risk.relatedTaskId) : undefined,
+          }));
+          const eventRecommendations = recommendationsFromPlan(plan).map((recommendation, index) => ({
+            ...recommendation,
+            id: `${event.id}-recommendation-${index + 1}`,
+            eventId: event.id,
+            relatedTaskId: recommendation.relatedTaskId ? taskIdMap.get(recommendation.relatedTaskId) : undefined,
+          }));
           const kpis = calculateKPIs(event, eventTasks);
           const notification: Notification = {
             id: `notif-${Date.now()}`,
@@ -266,9 +282,7 @@ export const useDashboardStore = create<StoreState>()(
           set({
             event,
             events: [...get().events.filter(item => item.id !== event.id), event],
-            participantEvents: !get().isUsingApi && !get().participantEvents.some(link => link.accountId === 'demo-participant' && link.eventId === event.id)
-              ? [...get().participantEvents, { accountId: 'demo-participant', eventId: event.id }]
-              : get().participantEvents,
+            participantEvents: get().participantEvents,
             selectedEventId: event.id,
             tasks: [...get().tasks, ...eventTasks],
             risks: [...get().risks, ...eventRisks],
@@ -292,7 +306,7 @@ export const useDashboardStore = create<StoreState>()(
 
       openDrawer: (task, type = 'task') => set({ drawer: { isOpen: true, task, type } }),
 
-      closeDrawer: () => set({ drawer: { isOpen: false, task: null, type: 'task' } }),
+      closeDrawer: () => set(state => ({ drawer: { ...state.drawer, isOpen: false } })),
 
       completeTask: async (taskId) => {
         if (get().isUsingApi) {

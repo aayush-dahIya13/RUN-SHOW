@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, Bell, ChevronDown, LogOut, Menu, Plus, UserRound } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { clearDemoSession, useDemoSession } from '@/lib/demo-auth';
@@ -25,6 +26,7 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
   const notifications = useDashboardStore(state => state.notifications);
   const markNotificationRead = useDashboardStore(state => state.markNotificationRead);
   const session = useDemoSession();
+  const reduceMotion = useReducedMotion();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -113,8 +115,9 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
               )}
             </Button>
             </Tooltip>
+            <AnimatePresence>
             {notificationsOpen && notifications.length > 0 && (
-              <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2 shadow-xl shadow-[var(--shadow-color)] sm:w-80" role="menu" aria-label="Notifications">
+              <motion.div initial={reduceMotion ? false : { opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -3 }} transition={{ duration: reduceMotion ? 0 : 0.16 }} className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2 shadow-xl shadow-[var(--shadow-color)] sm:w-80" role="menu" aria-label="Notifications">
                 <div className="flex items-center justify-between border-b border-[var(--divider)] px-3 py-2">
                   <h2 className="font-semibold text-[var(--text-primary)]">Notifications</h2>
                   {unreadCount > 0 && (
@@ -143,8 +146,9 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
                   ))}
                 </div>
                 {notifications.length > 5 && <p className="px-3 py-2 text-center text-sm text-[var(--text-secondary)]">{notifications.length} total notifications</p>}
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
 
           <ThemeToggle />
@@ -161,8 +165,9 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
               <span className="max-w-32 truncate text-sm font-medium">{displayName}</span>
               <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
             </button>
+            <AnimatePresence>
             {userMenuOpen && (
-              <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2 shadow-xl shadow-[var(--shadow-color)]" role="menu" aria-label="Account">
+              <motion.div initial={reduceMotion ? false : { opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -3 }} transition={{ duration: reduceMotion ? 0 : 0.16 }} className="absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2 shadow-xl shadow-[var(--shadow-color)]" role="menu" aria-label="Account">
                 <div className="border-b border-[var(--divider)] px-3 py-2">
                   <p className="truncate text-sm font-medium text-[var(--text-primary)]">{displayEmail}</p>
                   <p className="text-xs text-[var(--text-secondary)]">{roleLabel}</p>
@@ -171,8 +176,9 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar,
                   <LogOut className="h-4 w-4" aria-hidden="true" />
                   Sign out
                 </button>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
           </div>
         </div>

@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, ClipboardList, Eye, Loader2, Pencil, Plus, ShieldAlert, Sparkles, Users } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, ClipboardList, Eye, Loader2, Pencil, Plus, ShieldAlert, Trash2, Users } from 'lucide-react';
 import { generateEventPlan, getDefaultEventSetupForm } from '@/lib/event-plan-generator';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { EventPlan, EventSetupFormData, Role, Task } from '@/lib/types';
@@ -24,9 +24,19 @@ const STEPS = [
 
 const EVENT_TYPES = ['Hackathon', 'Conference', 'Workshop', 'Meetup', 'Demo Day', 'Training Summit'];
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
+const TIMEZONE_OPTIONS = typeof Intl === 'undefined'
+  ? [{ value: 'UTC', label: 'UTC' }]
+  : [Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', 'UTC', 'Asia/Kolkata', 'Europe/London', 'America/New_York', 'America/Los_Angeles']
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .map(value => ({ value, label: value }));
 
 function numberValue(value: string): number {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function normalizeForm(saved?: Partial<EventSetupFormData>): EventSetupFormData {
+  const defaults = getDefaultEventSetupForm();
+  return { ...defaults, ...saved, sessions: saved?.sessions ?? defaults.sessions };
 }
 
 function validateStep(step: number, form: EventSetupFormData): FormErrors {
@@ -35,6 +45,7 @@ function validateStep(step: number, form: EventSetupFormData): FormErrors {
   if (step === 0) {
     if (!form.name.trim()) errors.name = 'Event name is required.';
     if (!form.type.trim()) errors.type = 'Choose or enter an event type.';
+    if (!form.objectives.trim()) errors.objectives = 'Add at least one objective or description.';
   }
   if (step === 1) {
     if (!form.startDate) errors.startDate = 'Start date is required.';
@@ -42,14 +53,20 @@ function validateStep(step: number, form: EventSetupFormData): FormErrors {
     if (form.startDate && form.endDate && form.endDate < form.startDate) {
       errors.endDate = 'End date must be on or after the start date.';
     }
-    if (!form.registrationDeadline) errors.registrationDeadline = 'Registration deadline is required.';
-    if (form.registrationDeadline && form.startDate && form.registrationDeadline > form.startDate) {
-      errors.registrationDeadline = 'Registration deadline should not be after the event starts.';
+    if (!form.startTime) errors.startTime = 'Start time is required.';
+    if (!form.endTime) errors.endTime = 'End time is required.';
+    if (form.startDate && form.endDate && form.startDate === form.endDate && form.startTime && form.endTime && form.endTime <= form.startTime) errors.endTime = 'End time must be after the start time.';
+    if (!form.timezone.trim()) errors.timezone = 'Timezone is required.';
+    if ((form.format === 'in-person' || form.format === 'hybrid') && !form.venue.trim()) errors.venue = 'Add the event venue or location.';
+    if ((form.format === 'virtual' || form.format === 'hybrid') && !form.meetingUrl.trim() && !form.joiningInstructions.trim()) errors.meetingUrl = 'Add a meeting link or joining instructions.';
+    if (form.meetingUrl.trim()) {
+      try { new URL(form.meetingUrl); } catch { errors.meetingUrl = 'Enter a valid meeting URL, including https://.'; }
     }
   }
   if (step === 2) {
     if (!form.audience.trim()) errors.audience = 'Audience is required.';
     if (form.targetRegistrations < 1) errors.targetRegistrations = 'Target registrations must be at least 1.';
+    if (!Number.isInteger(form.expectedAttendance) || form.expectedAttendance < 0) errors.expectedAttendance = 'Expected attendance must be a nonnegative whole number.';
     if (form.currentRegistrations < 0) errors.currentRegistrations = 'Current registrations cannot be negative.';
     if (form.currentRegistrations > form.targetRegistrations) {
       errors.currentRegistrations = 'Current registrations cannot exceed the target.';
@@ -57,12 +74,17 @@ function validateStep(step: number, form: EventSetupFormData): FormErrors {
     if (form.participantCapacity !== undefined && (!Number.isInteger(form.participantCapacity) || form.participantCapacity < 1)) {
       errors.participantCapacity = 'Planned capacity must be a positive whole number.';
     }
+    if (form.participantCapacity !== undefined && form.expectedAttendance > form.participantCapacity) errors.expectedAttendance = 'Expected attendance cannot exceed capacity.';
   }
   if (step === 3) {
-    if (!form.venue.trim()) errors.venue = 'Add a venue, city, or platform name.';
-    if (!form.objectives.trim()) errors.objectives = 'Add at least one objective.';
+    if (!form.registrationDeadline) errors.registrationDeadline = 'Add a registration deadline for the initial plan.';
+    if (!form.contentDeadline) errors.contentDeadline = 'Add a content deadline for the initial plan.';
+    if (form.expectedPartners > 0 && !form.partnerDeadline) errors.partnerDeadline = 'Add a partner deadline when partners are expected.';
+    if (form.registrationDeadline && form.startDate && form.registrationDeadline > form.startDate) errors.registrationDeadline = 'Registration deadline should not be after the event starts.';
+    if (form.contentDeadline && form.startDate && form.contentDeadline > form.startDate) errors.contentDeadline = 'Content deadline should not be after the event starts.';
+    if (form.partnerDeadline && form.startDate && form.partnerDeadline > form.startDate) errors.partnerDeadline = 'Partner deadline should not be after the event starts.';
     if (!form.successMetrics.trim()) errors.successMetrics = 'Add at least one success metric.';
-    if (form.expectedPartners < 0) errors.expectedPartners = 'Expected partners cannot be negative.';
+    if (!Number.isInteger(form.expectedPartners) || form.expectedPartners < 0) errors.expectedPartners = 'Expected partners must be a nonnegative whole number.';
     if (form.sessions?.some(session => !session.name.trim() || !session.date || !session.startTime || !session.endTime || !session.venue.trim())) {
       errors.sessions = 'Complete the title, date, times, and venue for each schedule session.';
     }
@@ -104,7 +126,8 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
   );
 }
 
-function PlanPreview({ plan, onPlanChange }: { plan: EventPlan; onPlanChange: (plan: EventPlan) => void }) {
+function PlanPreview({ plan, onPlanChange, onEditSection }: { plan: EventPlan; onPlanChange: (plan: EventPlan) => void; onEditSection: (step: number) => void }) {
+  const hasPastDeadline = [plan.eventDraft.registrationDeadline, plan.eventDraft.contentDeadline, plan.eventDraft.partnerDeadline].some(deadline => deadline && deadline < new Date().toISOString().slice(0, 10));
   const updateTask = (taskId: string, patch: Partial<Task>) => {
     onPlanChange({
       ...plan,
@@ -114,6 +137,20 @@ function PlanPreview({ plan, onPlanChange }: { plan: EventPlan; onPlanChange: (p
 
   return (
     <div className="space-y-6">
+      <Card variant="default" padding="sm">
+        <CardTitle className="text-base">Event summary</CardTitle>
+        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+          <SummaryItem label="Event" value={`${plan.eventDraft.name} · ${plan.eventDraft.type}`} />
+          <SummaryItem label="Schedule" value={`${plan.eventDraft.startDate} ${plan.eventDraft.startTime} to ${plan.eventDraft.endDate} ${plan.eventDraft.endTime}`} />
+          <SummaryItem label="Timezone" value={plan.eventDraft.timezone} />
+          <SummaryItem label="Location" value={plan.eventDraft.format === 'virtual' ? plan.eventDraft.meetingUrl || plan.eventDraft.joiningInstructions : plan.eventDraft.venue} />
+          <SummaryItem label="Audience" value={`${plan.eventDraft.audience} · ${plan.eventDraft.expectedAttendance.toLocaleString()} expected`} />
+          <SummaryItem label="Registration and capacity" value={`${plan.eventDraft.targetRegistrations.toLocaleString()} target${plan.eventDraft.participantCapacity ? ` · ${plan.eventDraft.participantCapacity.toLocaleString()} capacity` : ''}`} />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2"><Button type="button" size="sm" variant="ghost" onClick={() => onEditSection(0)}>Edit basics</Button><Button type="button" size="sm" variant="ghost" onClick={() => onEditSection(1)}>Edit timing</Button><Button type="button" size="sm" variant="ghost" onClick={() => onEditSection(2)}>Edit audience</Button><Button type="button" size="sm" variant="ghost" onClick={() => onEditSection(3)}>Edit operations</Button></div>
+        {(!plan.eventDraft.participantCapacity || (!plan.eventDraft.meetingUrl && plan.eventDraft.format !== 'in-person')) && <p className="mt-4 rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--text-secondary)]">Some optional setup details are still missing. You can create the event now and complete them later.</p>}
+        {hasPastDeadline && <p className="mt-3 rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--text-secondary)]">One or more plan deadlines have already passed. Review the suggested tasks before creating the event.</p>}
+      </Card>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <Card variant="default" padding="sm">
           <CardTitle className="text-base">Timeline</CardTitle>
@@ -163,7 +200,7 @@ function PlanPreview({ plan, onPlanChange }: { plan: EventPlan; onPlanChange: (p
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle>Editable Task Plan</CardTitle>
-              <CardDescription>These tasks are saved into the existing dashboard data layer.</CardDescription>
+              <CardDescription>System-generated suggestions based on your event inputs. Adjust or remove optional tasks before creating the event.</CardDescription>
             </div>
             <Badge variant="info" size="sm">Deterministic generator</Badge>
           </div>
@@ -199,6 +236,7 @@ function PlanPreview({ plan, onPlanChange }: { plan: EventPlan; onPlanChange: (p
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Badge variant="neutral" className={PRIORITY_COLORS[task.priority]}>{task.priority}</Badge>
                 <Badge variant="neutral" className={STATUS_COLORS[task.status]}>{task.status}</Badge>
+                <Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={() => onPlanChange({ ...plan, tasks: plan.tasks.filter(item => item.id !== task.id) })}><Trash2 className="h-4 w-4" aria-hidden="true" />Remove</Button>
               </div>
             </div>
           ))}
@@ -226,12 +264,19 @@ function PlanPreview({ plan, onPlanChange }: { plan: EventPlan; onPlanChange: (p
   );
 }
 
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return <div><p className="text-xs font-medium text-[var(--text-secondary)]">{label}</p><p className="mt-1 break-words font-medium text-[var(--text-primary)]">{value || 'Not provided'}</p></div>;
+}
+
 export function EventSetupWizard() {
   const { confirmEventPlan, isSubmittingEvent, setupError, setGeneratedPlan, generatedPlan, isUsingApi } = useDashboardStore();
+  const reduceMotion = useReducedMotion();
   const [step, setStep] = React.useState(0);
-  const [form, setForm] = React.useState<EventSetupFormData>(() => generatedPlan?.eventDraft ?? getDefaultEventSetupForm());
+  const [form, setForm] = React.useState<EventSetupFormData>(() => normalizeForm(generatedPlan?.eventDraft));
   const [errors, setErrors] = React.useState<FormErrors>({});
-  const [plan, setPlan] = React.useState<EventPlan | null>(generatedPlan);
+  const [plan, setPlan] = React.useState<EventPlan | null>(() => generatedPlan ? { ...generatedPlan, eventDraft: normalizeForm(generatedPlan.eventDraft) } : null);
+  const [attemptedStep, setAttemptedStep] = React.useState(false);
+  const currentStepHasErrors = hasErrors(validateStep(step, form));
 
   const updateForm = <K extends keyof EventSetupFormData>(key: K, value: EventSetupFormData[K]) => {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -241,6 +286,7 @@ export function EventSetupWizard() {
   const goNext = () => {
     const nextErrors = validateStep(step, form);
     setErrors(nextErrors);
+    setAttemptedStep(true);
     if (hasErrors(nextErrors)) return;
 
     if (step === 3) {
@@ -249,11 +295,16 @@ export function EventSetupWizard() {
       setGeneratedPlan(generated);
     }
     setStep(prev => Math.min(prev + 1, STEPS.length - 1));
+    setAttemptedStep(false);
   };
 
   const confirm = async () => {
     if (!plan) return;
-    await confirmEventPlan(plan);
+    try {
+      await confirmEventPlan(plan);
+    } catch {
+      // The shared store exposes a safe, actionable setupError for this failure.
+    }
   };
 
   return (
@@ -261,17 +312,15 @@ export function EventSetupWizard() {
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-[var(--action-primary)]" />
-            <Badge variant={isUsingApi ? 'success' : 'neutral'}>{isUsingApi ? 'API mode' : 'Prototype setup'}</Badge>
+            <ClipboardList className="w-5 h-5 text-[var(--action-primary)]" aria-hidden="true" />
+            <Badge variant="info">Five-step setup</Badge>
           </div>
           <h2 className="runshow-scroll-heading text-3xl font-bold text-[var(--text-primary)] tracking-tight">Event Setup Wizard</h2>
           <p className="text-[var(--text-secondary)] mt-2 max-w-3xl">
             Capture event inputs, generate a reviewable operations plan, then open it in the existing command centre.
           </p>
         </div>
-        <Badge variant="info" className="w-fit">
-          Role switching is a prototype view, not access control
-        </Badge>
+        {isUsingApi && <Badge variant="info" className="w-fit">Connected event service</Badge>}
       </div>
 
       <Card variant="glass" padding="none">
@@ -279,47 +328,53 @@ export function EventSetupWizard() {
           <StepIndicator currentStep={step} />
         </CardHeader>
         <CardContent className="p-6 pt-3">
-          <motion.div key={step} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+          <motion.div key={step} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 0.18 }}>
             {step === 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Event name" value={form.name} onChange={(event) => updateForm('name', event.target.value)} error={errors.name} placeholder="RUNSHOW Innovation Sprint" />
-                <Select label="Event type" value={form.type} onChange={(event) => updateForm('type', event.target.value)} error={errors.type} options={EVENT_TYPES.map(type => ({ value: type, label: type }))} />
-                <Textarea className="md:col-span-2" label="Objectives" value={form.objectives} onChange={(event) => updateForm('objectives', event.target.value)} error={errors.objectives} placeholder="Launch developer community, generate qualified leads, onboard campus ambassadors" />
+                <Input label="Event name" value={form.name} onChange={(event) => updateForm('name', event.target.value)} error={errors.name} placeholder="Enter an event name" />
+                <Select label="Event type" value={form.type} onChange={(event) => updateForm('type', event.target.value)} error={errors.type} options={[{ value: '', label: 'Choose an event type' }, ...EVENT_TYPES.map(type => ({ value: type, label: type }))]} />
+                <Textarea className="md:col-span-2" label="Objectives or description" value={form.objectives} onChange={(event) => updateForm('objectives', event.target.value)} error={errors.objectives} placeholder="Describe the event goals and what success looks like" />
               </div>
             )}
 
             {step === 1 && (
+              <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <Input label="Start date" type="date" value={form.startDate} onChange={(event) => updateForm('startDate', event.target.value)} error={errors.startDate} />
                 <Input label="End date" type="date" value={form.endDate} onChange={(event) => updateForm('endDate', event.target.value)} error={errors.endDate} />
-                <Input label="Registration deadline" type="date" value={form.registrationDeadline} onChange={(event) => updateForm('registrationDeadline', event.target.value)} error={errors.registrationDeadline} />
-                <Input label="Partner deadline" type="date" value={form.partnerDeadline} onChange={(event) => updateForm('partnerDeadline', event.target.value)} error={errors.partnerDeadline} />
-                <Input label="Content deadline" type="date" value={form.contentDeadline} onChange={(event) => updateForm('contentDeadline', event.target.value)} error={errors.contentDeadline} />
+                <Select label="Event format" value={form.format} onChange={(event) => updateForm('format', event.target.value as EventSetupFormData['format'])} options={[{ value: 'in-person', label: 'In person' }, { value: 'virtual', label: 'Online' }, { value: 'hybrid', label: 'Hybrid' }]} />
+                <Input label="Start time" type="time" value={form.startTime} onChange={(event) => updateForm('startTime', event.target.value)} error={errors.startTime} />
+                <Input label="End time" type="time" value={form.endTime} onChange={(event) => updateForm('endTime', event.target.value)} error={errors.endTime} />
+                <Select label="Timezone" value={form.timezone} onChange={(event) => updateForm('timezone', event.target.value)} error={errors.timezone} options={TIMEZONE_OPTIONS} />
+                {(form.format === 'in-person' || form.format === 'hybrid') && <Input label="Venue or location" value={form.venue} onChange={(event) => updateForm('venue', event.target.value)} error={errors.venue} placeholder="Venue name, address, or city" />}
+                {(form.format === 'virtual' || form.format === 'hybrid') && <Input label="Meeting URL" type="url" value={form.meetingUrl} onChange={(event) => updateForm('meetingUrl', event.target.value)} error={errors.meetingUrl} placeholder="https://..." helperText="A joining instruction may be used instead." />}
+              </div>
+              {(form.format === 'virtual' || form.format === 'hybrid') && <Textarea label="Joining instructions" value={form.joiningInstructions} onChange={(event) => updateForm('joiningInstructions', event.target.value)} placeholder="Describe how attendees should join" />}
+              {form.startDate && form.endDate && <p className="rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-secondary)]">Schedule: {form.startDate} {form.startTime || 'time pending'} to {form.endDate} {form.endTime || 'time pending'} · {form.timezone}</p>}
               </div>
             )}
 
             {step === 2 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input label="Audience" value={form.audience} onChange={(event) => updateForm('audience', event.target.value)} error={errors.audience} placeholder="Students, developers, founders, sponsors" />
+                <Input label="Expected attendance" type="number" min={0} step={1} value={form.expectedAttendance} onChange={(event) => updateForm('expectedAttendance', numberValue(event.target.value))} error={errors.expectedAttendance} helperText="Planning estimate, not registrations." />
                 <Input label="Target registrations" type="number" min={1} value={form.targetRegistrations} onChange={(event) => updateForm('targetRegistrations', numberValue(event.target.value))} error={errors.targetRegistrations} />
-                <Input label="Current registrations" type="number" min={0} value={form.currentRegistrations} onChange={(event) => updateForm('currentRegistrations', numberValue(event.target.value))} error={errors.currentRegistrations} />
-                <Input label="Planned participant capacity" type="number" min={1} value={form.participantCapacity ?? ''} onChange={event => updateForm('participantCapacity', event.target.value ? numberValue(event.target.value) : undefined)} error={errors.participantCapacity} helperText="Separate from the registration target; leave blank if not set." />
+                <Input label="Maximum capacity" type="number" min={1} value={form.participantCapacity ?? ''} onChange={event => updateForm('participantCapacity', event.target.value ? numberValue(event.target.value) : undefined)} error={errors.participantCapacity} helperText="Separate from expected attendance and registration target." />
+                <Input label="Recorded registrations" type="number" min={0} value={form.currentRegistrations} onChange={(event) => updateForm('currentRegistrations', numberValue(event.target.value))} error={errors.currentRegistrations} helperText="Use 0 when registration has not opened." />
                 <Input label="Expected partners" type="number" min={0} value={form.expectedPartners} onChange={(event) => updateForm('expectedPartners', numberValue(event.target.value))} error={errors.expectedPartners} />
-                <Textarea className="md:col-span-2" label="Success metrics" value={form.successMetrics} onChange={(event) => updateForm('successMetrics', event.target.value)} error={errors.successMetrics} placeholder="500 registrations, 80% attendance, 6 partner confirmations, 90% session satisfaction" />
+                <div className="md:col-span-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 text-sm text-[var(--text-secondary)]">Planning summary: {form.expectedAttendance.toLocaleString()} expected · {form.targetRegistrations.toLocaleString()} registration target · {form.participantCapacity ? `${form.participantCapacity.toLocaleString()} maximum capacity` : 'capacity not set'}</div>
               </div>
             )}
 
             {step === 3 && (
               <div className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Select label="Event format" value={form.format} onChange={(event) => updateForm('format', event.target.value as EventSetupFormData['format'])} options={[
-                  { value: 'in-person', label: 'In person' },
-                  { value: 'virtual', label: 'Virtual' },
-                  { value: 'hybrid', label: 'Hybrid' },
-                  ]} />
-                  <Input label="Venue or platform" value={form.venue} onChange={(event) => updateForm('venue', event.target.value)} error={errors.venue} placeholder="Main auditorium, Zoom, or hybrid venue" />
+                  <Input label="Registration deadline" type="date" value={form.registrationDeadline} onChange={(event) => updateForm('registrationDeadline', event.target.value)} error={errors.registrationDeadline} helperText="Used for the registration task." />
+                  <Input label="Content deadline" type="date" value={form.contentDeadline} onChange={(event) => updateForm('contentDeadline', event.target.value)} error={errors.contentDeadline} helperText="Used for programme and communication tasks." />
+                  {form.expectedPartners > 0 && <Input label="Partner deadline" type="date" value={form.partnerDeadline} onChange={(event) => updateForm('partnerDeadline', event.target.value)} error={errors.partnerDeadline} helperText="Used for partner tasks." />}
                   <Input label="Optional budget" type="number" min={0} value={form.budget ?? ''} onChange={(event) => updateForm('budget', event.target.value ? numberValue(event.target.value) : undefined)} placeholder="250000" />
                   <Textarea label="Operational requirements" value={form.operationalRequirements} onChange={(event) => updateForm('operationalRequirements', event.target.value)} placeholder="Catering, AV, livestream, badge printing, volunteer staffing, accessibility" />
+                  <Textarea label="Success metrics" value={form.successMetrics} onChange={(event) => updateForm('successMetrics', event.target.value)} error={errors.successMetrics} placeholder="Examples: attendee satisfaction, completed sessions, confirmed partners" />
                 </div>
                 <section className="border-t border-[var(--divider)] pt-4" aria-labelledby="participant-schedule-title">
                   <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 id="participant-schedule-title" className="font-semibold text-[var(--text-primary)]">Participant schedule</h3><p className="mt-1 text-sm text-[var(--text-secondary)]">Optional session details shown in the participant workspace.</p></div><Button type="button" variant="secondary" size="sm" onClick={() => updateForm('sessions', [...(form.sessions ?? []), { id: `draft-${Date.now()}`, name: '', date: form.startDate, startTime: '09:00', endTime: '10:00', venue: form.venue, description: '', functionName: '' }])}><Plus className="h-4 w-4" aria-hidden="true" />Add session</Button></div>
@@ -345,6 +400,7 @@ export function EventSetupWizard() {
                   setPlan(updatedPlan);
                   setGeneratedPlan(updatedPlan);
                 }}
+                onEditSection={(nextStep) => { setStep(nextStep); setAttemptedStep(false); }}
               />
             )}
           </motion.div>
@@ -356,19 +412,19 @@ export function EventSetupWizard() {
           )}
 
           <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-[var(--divider)] pt-5">
-            <Button variant="secondary" onClick={() => setStep(prev => Math.max(prev - 1, 0))} disabled={step === 0 || isSubmittingEvent}>
+            <Button variant="secondary" onClick={() => { setStep(prev => Math.max(prev - 1, 0)); setAttemptedStep(false); }} disabled={step === 0 || isSubmittingEvent}>
               <ArrowLeft className="w-4 h-4" />
               Back
             </Button>
             <div className="flex items-center gap-3">
               {step === 4 && (
-                <Button variant="secondary" onClick={() => setStep(0)} disabled={isSubmittingEvent}>
+                <Button variant="secondary" onClick={() => { setStep(0); setAttemptedStep(false); }} disabled={isSubmittingEvent}>
                   <Pencil className="w-4 h-4" />
                   Edit inputs
                 </Button>
               )}
               {step < 4 ? (
-                <Button onClick={goNext}>
+                <Button onClick={goNext} disabled={isSubmittingEvent || (attemptedStep && currentStepHasErrors)}>
                   {step === 3 ? 'Generate plan' : 'Next'}
                   <ArrowRight className="w-4 h-4" />
                 </Button>

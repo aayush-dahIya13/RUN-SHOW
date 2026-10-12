@@ -12,7 +12,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = '', variant = 'primary', size = 'md', loading = false, disabled, children, ...props }, ref) => {
     const reduceMotion = useReducedMotion();
-    const baseStyles = 'inline-flex items-center justify-center font-medium rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:ring-offset-2 focus:ring-offset-[var(--page-bg)] disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyles = 'inline-flex cursor-pointer items-center justify-center font-medium rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:ring-offset-2 focus:ring-offset-[var(--page-bg)] disabled:opacity-50 disabled:cursor-not-allowed';
     
     const variants = {
       primary: 'bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)] hover:bg-[var(--action-primary-fill-hover)] active:bg-[var(--action-primary-fill-active)]',
@@ -34,7 +34,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
         disabled={disabled || loading}
-        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+        whileHover={reduceMotion || disabled || loading ? undefined : { y: -1 }}
+        whileTap={reduceMotion || disabled || loading ? undefined : { y: 0, scale: 0.98 }}
         {...props}
       >
         {loading && (
