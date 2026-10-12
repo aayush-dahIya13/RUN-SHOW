@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import { format, isValid, parseISO } from 'date-fns';
-import { ArrowLeft, Bell, Menu, Plus, UserRound } from 'lucide-react';
+import { ArrowLeft, Bell, Menu, Plus, UserRound, User, LogOut, ChevronDown } from 'lucide-react';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { useDemoSession } from '@/lib/demo-auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
-import { useDashboardStore } from '@/lib/dashboard-state';
 import { useAuthStore } from '@/lib/auth-store';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from './ThemeToggle';
@@ -30,7 +28,6 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar 
     ? `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`
     : format(start, 'MMM d, yyyy');
   const { user, logout } = useAuthStore();
-  const unreadCount = notifications.filter(n => !n.read).length;
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const getRoleLabel = (role: string) => {
@@ -193,7 +190,6 @@ export function Header({ title, onCreateEvent, onBackToDashboard, onOpenSidebar 
             </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
   );
 }
