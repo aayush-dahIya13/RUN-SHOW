@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "node scripts/seed-db.js",
+    "test": "node --test test/**/*.test.js"
   },
   "dependencies": {
     "date-fns": "^4.4.0",

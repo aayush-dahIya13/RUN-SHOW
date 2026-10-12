@@ -8,9 +8,28 @@ type Context = { params: Promise<{ eventId: string }> };
 export async function GET(_request: Request, context: Context) {
   const user = await currentUser(); const denied = requireRole(user, ['organizer', 'sub_organizer']); if (denied) return denied;
   const { eventId } = await context.params;
-  const event = db().prepare('SELECT id FROM events WHERE id=? AND organizer_id=?').get(eventId, user!.id);
-  if (!event) return jsonError('Event not found.', 404, 'EVENT_NOT_FOUND');
-  const rows = db().prepare('SELECT ta.*,u.name,u.email,u.role FROM team_assignments ta JOIN users u ON u.id=ta.user_id WHERE ta.event_id=? ORDER BY u.name').all(eventId);
+  if (user!.role === 'organizer') {
+    const event = db().prepare('SELECT id FROM events WHERE id=? AND organizer_id=?').get(eventId, user!.id);
+    if (!event) return jsonError('Event not found.', 404, 'EVENT_NOT_FOUND');
+  }
+  const rows = db().prepare(`
+    SELECT
+      ta.id as assignment_id, ta.responsibility, ta.status as assignment_status,
+      u.id, u.name, u.email, u.role,
+      COALESCE(rp.availability, 'available') as availability,
+      COALESCE(rp.skills, 'operations') as skills,
+      COALESCE(rp.zones, 'all') as zones,
+      (SELECT COUNT(*) FROM incidents i
+       WHERE i.assigned_responder_id = u.id
+         AND i.status NOT IN ('resolved','closed')
+         AND i.event_id = ta.event_id
+      ) as active_incidents
+    FROM team_assignments ta
+    JOIN users u ON u.id = ta.user_id
+    LEFT JOIN responder_profiles rp ON rp.user_id = u.id
+    WHERE ta.event_id=? AND ta.status='active'
+    ORDER BY u.name
+  `).all(eventId);
   return NextResponse.json(rows);
 }
 

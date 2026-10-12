@@ -7,7 +7,7 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { authenticateDemo, createDemoParticipant, DEMO_ACCOUNTS, destinationForRole, saveDemoSession, useDemoSession } from '@/lib/demo-auth';
+import { authenticateDemo, authenticateServer, createDemoParticipant, createServerParticipant, DEMO_ACCOUNTS, destinationForRole, isUsingServerAuth, saveDemoSession, useDemoSession } from '@/lib/demo-auth';
 import { useDashboardStore } from '@/lib/dashboard-state';
 
 type AuthView = 'signin' | 'signup';
@@ -59,7 +59,7 @@ export default function LoginPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      const authenticatedSession = await authenticateDemo(email, password);
+      const authenticatedSession = isUsingServerAuth() ? await authenticateServer(email, password) : await authenticateDemo(email, password);
       if (!authenticatedSession) {
         setError('That email and password do not match an active account. Check the credentials and try again.');
         return;
@@ -88,7 +88,7 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      const createdSession = await createDemoParticipant(fullName, signupEmail, signupPassword);
+      const createdSession = isUsingServerAuth() ? await createServerParticipant(fullName, signupEmail, signupPassword) : await createDemoParticipant(fullName, signupEmail, signupPassword);
       saveDemoSession(createdSession);
       setPassword('');
       setSignupPassword('');
@@ -148,7 +148,7 @@ export default function LoginPage() {
                           checked={checked}
                           onChange={() => {
                             setSelectedWorkspace(option.role);
-                            if (account) {
+                            if (account && !isUsingServerAuth()) {
                               setEmail(account.email);
                               setPassword('');
                             }
@@ -193,7 +193,7 @@ export default function LoginPage() {
               </section>
             )}
 
-            <p className="mt-5 border-t border-[var(--divider)] pt-4 text-xs leading-relaxed text-[var(--text-muted)]">Authentication is currently stored in this browser for prototype use and does not provide production-secure authorization.</p>
+            <p className="mt-5 border-t border-[var(--divider)] pt-4 text-xs leading-relaxed text-[var(--text-muted)]">{isUsingServerAuth() ? 'Your account is protected by the configured server session.' : 'Local prototype mode stores the demo session in this browser and is not production-secure.'}</p>
           </CardContent>
         </Card>
       </div>

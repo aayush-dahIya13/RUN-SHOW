@@ -12,8 +12,40 @@ export async function PATCH(request: Request, context: Context) {
   const { taskId } = await context.params;
   const task = db().prepare('SELECT * FROM tasks WHERE id=?').get(taskId);
   if (!task || !canAccessEvent(String(task.event_id), user!.id, user!.role)) return jsonError('Task not found.', 404, 'TASK_NOT_FOUND');
-  const body = await request.json().catch(() => null) as { status?: string } | null;
-  if (!body?.status || !['pending', 'in-progress', 'completed', 'blocked'].includes(body.status)) return jsonError('A valid task status is required.', 422, 'INVALID_STATUS');
-  db().prepare('UPDATE tasks SET status=?,updated_at=? WHERE id=?').run(body.status, new Date().toISOString(), taskId);
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const now = new Date().toISOString();
+
+  const newStatus = body?.status ? String(body.status) : undefined;
+  if (newStatus && !['pending', 'in-progress', 'completed', 'blocked'].includes(newStatus)) {
+    return jsonError('A valid task status is required.', 422, 'INVALID_STATUS');
+  }
+
+  const title = body?.title !== undefined ? String(body.title).trim() : undefined;
+  const description = body?.description !== undefined ? String(body.description) : undefined;
+  const priority = body?.priority !== undefined ? String(body.priority) : undefined;
+  const deadline = body?.deadline !== undefined ? String(body.deadline) : undefined;
+  const department = body?.functionName !== undefined ? (String(body.functionName) || null) : undefined;
+
+  db().prepare(`
+    UPDATE tasks
+    SET status=COALESCE(?, status),
+        title=COALESCE(?, title),
+        description=COALESCE(?, description),
+        priority=COALESCE(?, priority),
+        due_at=COALESCE(?, due_at),
+        department=COALESCE(?, department),
+        updated_at=?
+    WHERE id=?
+  `).run(
+    newStatus ?? null,
+    title ?? null,
+    description ?? null,
+    priority ?? null,
+    deadline ?? null,
+    department ?? null,
+    now,
+    taskId
+  );
+
   return NextResponse.json(taskFromRow(db().prepare('SELECT * FROM tasks WHERE id=?').get(taskId)!));
 }
