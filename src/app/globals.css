@@ -55,6 +55,8 @@
   --surface-elevated-gradient: linear-gradient(145deg, var(--surface-elevated), color-mix(in srgb, var(--snow-white) 92%, var(--grey)));
   --surface-glass: color-mix(in srgb, var(--surface-card) 90%, transparent);
   --surface-highlight: color-mix(in srgb, var(--snow-white) 72%, transparent);
+  --tooltip-bg: var(--metallic-black);
+  --tooltip-fg: var(--snow-white);
 
   --background: var(--page-bg);
   --foreground: var(--text-primary);
@@ -89,6 +91,8 @@
     --surface-elevated-gradient: linear-gradient(145deg, var(--surface-elevated), color-mix(in srgb, var(--metallic-black) 76%, var(--grey)));
     --surface-glass: color-mix(in srgb, var(--surface-card) 90%, transparent);
     --surface-highlight: color-mix(in srgb, var(--snow-white) 5%, transparent);
+    --tooltip-bg: var(--surface-elevated);
+    --tooltip-fg: var(--snow-white);
     color-scheme: dark;
   }
 }
@@ -120,6 +124,8 @@
   --surface-elevated-gradient: linear-gradient(145deg, var(--surface-elevated), color-mix(in srgb, var(--metallic-black) 76%, var(--grey)));
   --surface-glass: color-mix(in srgb, var(--surface-card) 90%, transparent);
   --surface-highlight: color-mix(in srgb, var(--snow-white) 5%, transparent);
+  --tooltip-bg: var(--surface-elevated);
+  --tooltip-fg: var(--snow-white);
   color-scheme: dark;
 }
 
