@@ -6,10 +6,20 @@ export const DEMO_EVENT: Event = {
   date: '2026-10-15',
   targetRegistrations: 500,
   currentRegistrations: 280,
+  participantCapacity: 550,
   partnerConfirmations: 3,
   totalPartners: 5,
-  venueConfirmed: false,
   daysRemaining: 4,
+  isDemo: true,
+  venue: 'Delhi Convention Centre',
+  format: 'hybrid',
+  venueConfirmed: false,
+  participantInstructions: 'Bring your registration confirmation. Check-in opens at 8:30 AM at the main entrance.',
+  sessions: [
+    { id: 'techsprint-day1-opening', name: 'Check-in and Opening', date: '2026-10-15', startTime: '08:30', endTime: '09:30', venue: 'Main Auditorium', description: 'Participant check-in, welcome, and event briefing.', functionName: 'Orientation' },
+    { id: 'techsprint-day1-build', name: 'Build Sprint', date: '2026-10-15', startTime: '10:00', endTime: '16:00', venue: 'Innovation Hall', description: 'Team project work and mentor support.', functionName: 'Gaming' },
+    { id: 'techsprint-day1-close', name: 'Showcase and Closing', date: '2026-10-15', startTime: '16:30', endTime: '18:00', venue: 'Main Auditorium', description: 'Project demos, closing notes, and awards.', functionName: 'Speaker Coordination' },
+  ],
 };
 
 export const DEMO_RISKS: Risk[] = [
@@ -298,29 +308,29 @@ export const ROLE_ICONS: Record<Role, string> = {
 };
 
 export const SEVERITY_COLORS: Record<RiskSeverity, string> = {
-  critical: 'text-red-400 bg-red-500/10 border-red-500/20',
-  high: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
-  medium: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
-  low: 'text-green-400 bg-green-500/10 border-green-500/20',
+  critical: 'text-[var(--danger)] bg-[var(--danger-surface)] border-[var(--accent)]',
+  high: 'text-[var(--danger)] bg-[var(--accent-muted)] border-[var(--accent)]',
+  medium: 'text-[var(--accent-foreground)] bg-[var(--accent-muted)] border-[var(--accent)]',
+  low: 'text-[var(--action-primary)] bg-[var(--success-surface)] border-[var(--action-primary)]',
 };
 
 export const PRIORITY_COLORS: Record<RecommendationPriority, string> = {
-  urgent: 'text-red-400 bg-red-500/10 border-red-500/20',
-  high: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
-  medium: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
-  low: 'text-green-400 bg-green-500/10 border-green-500/20',
+  urgent: 'text-[var(--danger)] bg-[var(--danger-surface)] border-[var(--accent)]',
+  high: 'text-[var(--danger)] bg-[var(--accent-muted)] border-[var(--accent)]',
+  medium: 'text-[var(--accent-foreground)] bg-[var(--accent-muted)] border-[var(--accent)]',
+  low: 'text-[var(--action-primary)] bg-[var(--success-surface)] border-[var(--action-primary)]',
 };
 
 export const STATUS_COLORS: Record<TaskStatus, string> = {
-  pending: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/20',
-  'in-progress': 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
-  completed: 'text-green-400 bg-green-500/10 border-green-500/20',
-  blocked: 'text-red-400 bg-red-500/10 border-red-500/20',
+  pending: 'text-[var(--text-secondary)] bg-[var(--neutral-surface)] border-[var(--border)]',
+  'in-progress': 'text-[var(--accent-foreground)] bg-[var(--accent-muted)] border-[var(--accent)]',
+  completed: 'text-[var(--action-primary)] bg-[var(--success-surface)] border-[var(--action-primary)]',
+  blocked: 'text-[var(--danger)] bg-[var(--danger-surface)] border-[var(--accent)]',
 };
 
 export const RISK_STATUS_COLORS: Record<RiskStatus, string> = {
-  open: 'text-red-400 bg-red-500/10 border-red-500/20',
-  'in-progress': 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
-  mitigated: 'text-green-400 bg-green-500/10 border-green-500/20',
-  closed: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/20',
+  open: 'text-[var(--danger)] bg-[var(--danger-surface)] border-[var(--accent)]',
+  'in-progress': 'text-[var(--accent-foreground)] bg-[var(--accent-muted)] border-[var(--accent)]',
+  mitigated: 'text-[var(--action-primary)] bg-[var(--success-surface)] border-[var(--action-primary)]',
+  closed: 'text-[var(--text-secondary)] bg-[var(--neutral-surface)] border-[var(--border)]',
 };
