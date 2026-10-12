@@ -9,9 +9,9 @@ import { Partner } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 
-const STATUS_CONFIG: Record<'confirmed' | 'pending', { label: string; variant: 'success' | 'warning'; icon: typeof CheckCircle; color: string }> = {
-  confirmed: { label: 'Confirmed', variant: 'success', icon: CheckCircle, color: '#22c55e' },
-  pending: { label: 'Pending', variant: 'warning', icon: Clock, color: '#eab308' },
+const STATUS_CONFIG: Record<'confirmed' | 'pending', { label: string; variant: 'success' | 'warning'; icon: typeof CheckCircle }> = {
+  confirmed: { label: 'Confirmed', variant: 'success', icon: CheckCircle },
+  pending: { label: 'Pending', variant: 'warning', icon: Clock },
 };
 
 export function PartnerOverview() {
@@ -40,7 +40,7 @@ export function PartnerOverview() {
     return (
       <Card variant="glass" padding="md" className="h-full">
         <CardContent className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400" aria-label="Loading partners" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--action-primary)]" aria-label="Loading partners" />
         </CardContent>
       </Card>
     );
@@ -52,7 +52,7 @@ export function PartnerOverview() {
         <CardHeader className="p-6 pb-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-900/50 border border-slate-800 flex items-center justify-center text-cyan-400">
+              <div className="w-10 h-10 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-center text-[var(--action-primary)]">
                 <Handshake className="w-5 h-5" aria-hidden="true" />
               </div>
               <div>
@@ -77,30 +77,30 @@ export function PartnerOverview() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.05 }}
-                className="p-4 rounded-xl border border-slate-800 bg-slate-900/30 hover:border-cyan-500/30 hover:bg-slate-800/30 transition-all duration-200"
+                className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-card)] hover:border-[var(--action-primary)]/40 hover:bg-[var(--surface-elevated)] transition-all duration-200"
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <h4 className="font-semibold text-slate-100">{partner.name}</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">{partner.type} Partner</p>
+                    <h4 className="font-semibold text-[var(--text-primary)]">{partner.name}</h4>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">{partner.type} Partner</p>
                   </div>
                   <Badge variant={STATUS_CONFIG[partner.status].variant} size="sm" dot>
                     {STATUS_CONFIG[partner.status].label}
                   </Badge>
                 </div>
-                <div className="space-y-2 text-sm text-slate-400">
+                <div className="space-y-2 text-sm text-[var(--text-secondary)]">
                   <div className="flex items-center gap-2">
                     <Building2 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                    <span>Contact: <span className="text-slate-300 font-medium">{partner.contact}</span></span>
+                    <span>Contact: <span className="text-[var(--text-primary)] font-medium">{partner.contact}</span></span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                    <span>Decision by: <span className="text-slate-300 font-medium">{new Date(partner.deadline).toLocaleDateString()}</span></span>
+                    <span>Decision by: <span className="text-[var(--text-primary)] font-medium">{new Date(partner.deadline).toLocaleDateString()}</span></span>
                   </div>
                 </div>
                 {partner.status === 'pending' && (
-                  <div className="mt-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                    <div className="flex items-center gap-2 text-xs text-yellow-400 mb-2">
+                  <div className="mt-3 p-3 rounded-lg bg-[var(--accent-muted)] border border-[var(--accent)]/30">
+                    <div className="flex items-center gap-2 text-xs text-[var(--danger)] mb-2">
                       <AlertTriangle className="w-4 h-4" aria-hidden="true" />
                       <span>Action required: Follow up needed</span>
                     </div>
@@ -109,7 +109,7 @@ export function PartnerOverview() {
                         { id: partner.id, title: `Follow up: ${partner.name}`, description: `Contact ${partner.contact} to confirm partnership.`, priority: 'high', assignee: 'partnerships', deadline: partner.deadline, status: 'pending', relatedRecommendationId: 'rec-3' },
                         'task'
                       )}
-                      className="text-xs font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                      className="text-xs font-medium text-[var(--action-primary)] hover:text-[var(--action-primary-hover)] flex items-center gap-1"
                     >
                       Create follow-up task
                       <ExternalLink className="w-3 h-3" aria-hidden="true" />
@@ -124,8 +124,8 @@ export function PartnerOverview() {
 
       <Card variant="glass" padding="md">
         <CardContent className="flex flex-col items-center text-center py-2">
-          <p className="text-sm text-slate-400 mb-2">Partner management dashboard</p>
-          <p className="text-xs text-slate-500">Full partner CRM, contract tracking, and deliverables management will be implemented by Member 2</p>
+          <p className="text-sm text-[var(--text-secondary)] mb-2">Partner management dashboard</p>
+          <p className="text-xs text-[var(--text-muted)]">Full partner CRM, contract tracking, and deliverables management will be implemented by Member 2</p>
         </CardContent>
       </Card>
     </div>

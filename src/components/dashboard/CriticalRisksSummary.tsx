@@ -35,20 +35,20 @@ function RiskSummaryCard({ risk, index }: RiskSummaryCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
     >
-      <div className={`p-4 rounded-xl border ${SEVERITY_COLORS[risk.severity]} hover:border-cyan-500/30 hover:bg-slate-800/30 transition-all duration-200`}>
+      <div className={`p-4 rounded-xl border ${SEVERITY_COLORS[risk.severity]} hover:border-[var(--action-primary)]/40 hover:bg-[var(--surface-elevated)] transition-all duration-200`}>
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-900/50 border border-slate-800 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5" style={{ color: risk.severity === 'critical' ? '#ef4444' : risk.severity === 'high' ? '#f97316' : risk.severity === 'medium' ? '#eab308' : '#22c55e' }} aria-hidden="true" />
+          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-[var(--danger)]" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <h4 className="font-semibold text-slate-100 truncate pr-2">{risk.title}</h4>
+              <h4 className="font-semibold text-[var(--text-primary)] truncate pr-2">{risk.title}</h4>
               <Badge variant="neutral" size="sm" className={SEVERITY_COLORS[risk.severity].replace('border-', '').replace('bg-', 'bg-').replace('text-', 'text-')}>
                 {SEVERITY_LABELS[risk.severity]}
               </Badge>
             </div>
-            <p className="text-sm text-slate-400 mt-1 line-clamp-1">{risk.reason}</p>
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-500">
+            <p className="text-sm text-[var(--text-secondary)] mt-1 line-clamp-1">{risk.reason}</p>
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-[var(--text-muted)]">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" aria-hidden="true" />
                 {risk.deadline ? `Due: ${new Date(risk.deadline).toLocaleDateString()}` : 'No deadline'}
@@ -61,7 +61,7 @@ function RiskSummaryCard({ risk, index }: RiskSummaryCardProps) {
               <span className="flex items-center gap-1">Owner: {risk.owner}</span>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-slate-500 flex-shrink-0" aria-hidden="true" />
+          <ChevronRight className="w-5 h-5 text-[var(--text-muted)] flex-shrink-0" aria-hidden="true" />
         </div>
       </div>
     </motion.div>
@@ -69,10 +69,11 @@ function RiskSummaryCard({ risk, index }: RiskSummaryCardProps) {
 }
 
 export function CriticalRisksSummary() {
-  const { risks, selectedRole } = useDashboardStore();
+  const { risks, selectedRole, event } = useDashboardStore();
 
   const criticalRisks = risks
     .filter(r => r.severity === 'critical' || r.severity === 'high')
+    .filter(r => !r.eventId || r.eventId === event.id)
     .filter(r => selectedRole === 'leadership' || r.owner === selectedRole)
     .slice(0, 3);
 
@@ -80,9 +81,9 @@ export function CriticalRisksSummary() {
     return (
       <Card variant="glass" padding="md" className="max-w-sm">
         <CardContent className="flex flex-col items-center text-center py-4">
-          <AlertTriangle className="w-12 h-12 text-green-500/50 mb-2" aria-hidden="true" />
-          <p className="text-sm text-slate-400">No critical or high risks</p>
-          <p className="text-xs text-slate-500 mt-1">All risks are medium or low severity</p>
+          <AlertTriangle className="w-12 h-12 text-[var(--action-primary)]/60 mb-2" aria-hidden="true" />
+          <p className="text-sm text-[var(--text-secondary)]">No critical or high risks</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">All risks are medium or low severity</p>
         </CardContent>
       </Card>
     );
@@ -93,8 +94,8 @@ export function CriticalRisksSummary() {
       <div className="p-6 pb-0">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-100">Critical Risks</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Top risks requiring immediate attention</p>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">Critical Risks</h3>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">Top risks requiring immediate attention</p>
           </div>
           <Badge variant="danger" size="sm" dot>
             {criticalRisks.length} active
@@ -117,7 +118,7 @@ export function CriticalRisksSummary() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
             onClick={() => useDashboardStore.getState().setSelectedView('operations')}
-            className="w-full mt-3 text-sm font-medium text-cyan-400 hover:text-cyan-300 flex items-center justify-center gap-1 p-2 rounded-lg hover:bg-slate-800/50 transition-colors"
+            className="w-full mt-3 text-sm font-medium text-[var(--action-primary)] hover:text-[var(--action-primary-hover)] flex items-center justify-center gap-1 p-2 rounded-lg hover:bg-[var(--surface-elevated)] transition-colors"
           >
             View all risks in Operations
             <ChevronRight className="w-4 h-4" aria-hidden="true" />

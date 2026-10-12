@@ -56,13 +56,13 @@ export function EventDateDisplay() {
   }, []);
 
   if (!now) {
-    return <p className="text-sm text-slate-400 animate-pulse">Loading date…</p>;
+    return <p className="text-sm text-[var(--text-secondary)] animate-pulse">Loading date…</p>;
   }
 
   const daysRemaining = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
   return (
-    <p className="text-sm text-slate-400">
+    <p className="text-sm text-[var(--text-secondary)]">
       {format(eventDate, 'EEEE, MMMM d, yyyy')} • {daysRemaining > 0 ? `${daysRemaining} days remaining` : daysRemaining === 0 ? 'Event starts today' : 'Event completed'}
     </p>
   );
