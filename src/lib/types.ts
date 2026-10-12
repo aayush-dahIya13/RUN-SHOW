@@ -8,6 +8,43 @@ export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'blocked';
 
 export type RecommendationPriority = 'urgent' | 'high' | 'medium' | 'low';
 
+export type AccountRole = 'organizer' | 'sub_organizer' | 'participant';
+
+export interface EventSession {
+  id: string;
+  name: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  description: string;
+  functionName?: string;
+}
+
+export interface TeamAssignment {
+  id: string;
+  accountId: string;
+  eventId: string;
+  functionName: string;
+  responsibilities: Role[];
+  active: boolean;
+}
+
+export interface ParticipantEventLink {
+  accountId: string;
+  eventId: string;
+  registrationStatus?: 'invited' | 'registered' | 'cancelled';
+}
+
+export interface Announcement {
+  id: string;
+  eventId: string;
+  title: string;
+  message: string;
+  publishedAt: string;
+  isDemo: boolean;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -17,6 +54,7 @@ export interface Event {
   endDate?: string;
   targetRegistrations: number;
   currentRegistrations: number;
+  participantCapacity?: number;
   partnerConfirmations: number;
   totalPartners: number;
   venueConfirmed: boolean;
@@ -28,6 +66,9 @@ export interface Event {
   successMetrics?: string[];
   budget?: number;
   operationalRequirements?: string;
+  isDemo?: boolean;
+  sessions?: EventSession[];
+  participantInstructions?: string;
 }
 
 export interface Risk {
@@ -40,6 +81,7 @@ export interface Risk {
   status: RiskStatus;
   relatedRecommendationId?: string;
   relatedTaskId?: string;
+  eventId?: string;
 }
 
 export interface Recommendation {
@@ -52,6 +94,7 @@ export interface Recommendation {
   expectedImpact: string;
   relatedRiskId?: string;
   relatedTaskId?: string;
+  eventId?: string;
 }
 
 export interface Task {
@@ -64,6 +107,8 @@ export interface Task {
   status: TaskStatus;
   relatedRiskId?: string;
   relatedRecommendationId?: string;
+  eventId?: string;
+  functionName?: string;
 }
 
 export interface KPIData {
@@ -101,7 +146,7 @@ export interface OutreachDataPoint {
 
 export interface DashboardState {
   selectedRole: Role;
-  selectedView: 'setup' | 'overview' | 'event-health' | 'recommendations' | 'tasks' | 'partners' | 'operations';
+  selectedView: 'setup' | 'overview' | 'calendar' | 'event-health' | 'settings' | 'recommendations' | 'tasks' | 'partners' | 'operations';
   risks: Risk[];
   recommendations: Recommendation[];
   tasks: Task[];
@@ -149,6 +194,8 @@ export interface EventSetupFormData {
   budget?: number;
   operationalRequirements: string;
   expectedPartners: number;
+  participantCapacity?: number;
+  sessions?: EventSession[];
 }
 
 export interface EventMilestone {
