@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createSubOrganizerAccount, ExistingAccountError } from '../src/lib/server/account-repository.ts';
 import { authenticateUser, createSession, hashPassword } from '../src/lib/server/auth-credentials.ts';
 import { initDbSchema } from '../src/lib/server/db.ts';
+import { destinationForRole } from '../src/lib/role-routing.ts';
 import { canReadEventTeam } from '../src/lib/server/team-repository.ts';
 
 function fixture() {
@@ -47,6 +48,7 @@ test('organizer-created sub-organizer persists account and membership, authentic
     assert.equal(canReadEventTeam(database, 'other-event', created.user.id, created.user.role), false);
 
     assert.equal(await authenticateUser(database, ' NEW.SUBORGANIZER@gmail.com ', subOrganizerInput.password).then(user => user?.role), 'sub_organizer');
+    assert.equal(destinationForRole('sub_organizer'), '/sub-organizer/dashboard');
     assert.equal(await authenticateUser(database, subOrganizerInput.email, 'incorrect-password'), null);
     const session = await createSession(created.user.id, database);
     const sessionDigest = createHash('sha256').update(session.token).digest('hex');
@@ -110,9 +112,11 @@ test('organizer and participant credentials still authenticate; inactive users d
     insertUser.run('organizer-auth', 'Organizer', 'organizer@example.test', await hashPassword('organizer-password'), 'organizer', 'active', now, now);
     insertUser.run('participant-auth', 'Participant', 'participant@example.test', await hashPassword('participant-password'), 'participant', 'active', now, now);
     insertUser.run('inactive-auth', 'Inactive', 'inactive@example.test', await hashPassword('inactive-password'), 'sub_organizer', 'inactive', now, now);
+    insertUser.run('unassigned-auth', 'Unassigned', 'unassigned@example.test', await hashPassword('unassigned-password'), 'sub_organizer', 'active', now, now);
     assert.equal((await authenticateUser(database, 'ORGANIZER@example.test', 'organizer-password')).role, 'organizer');
     assert.equal((await authenticateUser(database, 'participant@example.test', 'participant-password')).role, 'participant');
     assert.equal(await authenticateUser(database, 'inactive@example.test', 'inactive-password'), null);
+    assert.equal(await authenticateUser(database, 'unassigned@example.test', 'unassigned-password'), null);
     assert.equal(JSON.stringify(await authenticateUser(database, 'organizer@example.test', 'organizer-password')).includes('password_hash'), false);
   } finally { database.close(); }
 });

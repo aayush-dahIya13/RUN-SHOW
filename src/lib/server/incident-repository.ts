@@ -1,4 +1,5 @@
 import { db, id, nowIso } from './db';
+import type { SqliteDatabase } from './db';
 import type {
   Incident,
   IncidentCategory,
@@ -6,12 +7,11 @@ import type {
   IncidentStatus,
   IncidentMessage,
   IncidentActivity,
-  IncidentAssignment,
   ResponderRecommendation,
   InAppNotification,
-  TaskComment,
 } from '@/lib/types';
-import type { ServerUser } from './auth';
+import { listCapabilities } from './team-repository';
+import { suggestResponders } from '../team-capabilities';
 
 export const VALID_STATUS_TRANSITIONS: Record<IncidentStatus, IncidentStatus[]> = {
   new: ['acknowledged', 'assigned', 'closed'],
@@ -258,12 +258,16 @@ export function getIncidentActivities(incidentId: string): IncidentActivity[] {
   }));
 }
 
-export function logIncidentActivity(incidentId: string, actorId: string, action: string, details: string) {
+export function logIncidentActivity(incidentId: string, actorId: string, action: string, details: string, requestKey?: string, database: SqliteDatabase = db()): boolean {
   const actId = id('act');
   const now = nowIso();
-  db()
-    .prepare('INSERT INTO incident_activities (id, incident_id, actor_id, action, details, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(actId, incidentId, actorId, action, details, now);
+  const result = requestKey
+    ? database.prepare(`INSERT INTO incident_activities (id, incident_id, actor_id, action, details, request_key, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(incident_id,actor_id,request_key) WHERE request_key IS NOT NULL DO NOTHING`)
+      .run(actId, incidentId, actorId, action, details, requestKey, now)
+    : database.prepare('INSERT INTO incident_activities (id, incident_id, actor_id, action, details, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(actId, incidentId, actorId, action, details, now);
+  return result.changes > 0;
 }
 
 export function recommendResponders(eventId: string, incident: { category: IncidentCategory; zone?: string }): ResponderRecommendation[] {
@@ -273,81 +277,30 @@ export function recommendResponders(eventId: string, incident: { category: Incid
            COALESCE(rp.skills, 'operations') as skills,
            COALESCE(rp.zones, 'all') as zones,
            COALESCE(rp.availability, 'available') as availability,
-           (SELECT COUNT(*) FROM incidents inc WHERE inc.assigned_responder_id = u.id AND inc.status NOT IN ('resolved', 'closed')) as active_count
+           (SELECT COUNT(*) FROM incidents inc WHERE inc.event_id=? AND inc.assigned_responder_id = u.id AND inc.status NOT IN ('resolved', 'closed')) as active_count
     FROM users u
     JOIN team_assignments ta ON ta.user_id = u.id AND ta.event_id = ? AND ta.status = 'active'
     LEFT JOIN responder_profiles rp ON rp.user_id = u.id
     WHERE u.role IN ('sub_organizer', 'organizer') AND u.status = 'active'
-  `).all(eventId);
+  `).all(eventId, eventId);
 
-  const recommendations: ResponderRecommendation[] = [];
-
-  for (const row of teamMembers) {
-    const responderId = String(row.id);
-    const name = String(row.name);
-    const email = String(row.email);
-    const skills = String(row.skills).split(',').map(s => s.trim().toLowerCase());
-    const zones = String(row.zones).split(',').map(z => z.trim().toLowerCase());
-    const availability = String(row.availability);
-    const activeIncidentsCount = Number(row.active_count);
-
-    let score = 50;
-    const reasons: string[] = [];
-
-    // 1. Skill/responsibility match
-    const categoryMatchesSkill = skills.includes(incident.category.toLowerCase()) || skills.includes('all') || skills.includes('operations');
-    if (skills.includes(incident.category.toLowerCase())) {
-      score += 40;
-      reasons.push(`Specialized skill in ${incident.category}`);
-    } else if (categoryMatchesSkill) {
-      score += 20;
-      reasons.push('General operations skill match');
-    }
-
-    // 2. Zone match
-    if (incident.zone) {
-      const targetZone = incident.zone.trim().toLowerCase();
-      if (zones.includes(targetZone) || zones.includes('all')) {
-        score += 30;
-        reasons.push(`Assigned responsibility for ${incident.zone}`);
-      }
-    } else {
-      score += 10;
-    }
-
-    // 3. Availability
-    if (availability === 'available') {
-      score += 20;
-      reasons.push('Currently marked available');
-    } else if (availability === 'busy') {
-      score -= 20;
-      reasons.push('Currently marked busy');
-    } else {
-      score -= 50;
-    }
-
-    // 4. Workload penalty
-    score -= activeIncidentsCount * 15;
-    if (activeIncidentsCount === 0) {
-      reasons.push('Zero active incident workload');
-    } else {
-      reasons.push(`${activeIncidentsCount} active incident${activeIncidentsCount === 1 ? '' : 's'}`);
-    }
-
-    recommendations.push({
-      responderId,
-      name,
-      email,
-      skills,
-      zones,
-      availability,
-      activeIncidentsCount,
-      score: Math.max(0, score),
-      reason: reasons.join('; '),
-    });
-  }
-
-  // Sort by highest score first
-  recommendations.sort((a, b) => b.score - a.score);
-  return recommendations;
+  const ranked = suggestResponders(teamMembers.map(row => ({
+    id: String(row.id), name: String(row.name), availability: String(row.availability),
+    zones: String(row.zones).split(',').map(value => value.trim()).filter(Boolean),
+    activeIncidents: Number(row.active_count),
+    activeTasks: Number(db().prepare("SELECT COUNT(*) AS count FROM tasks WHERE event_id=? AND owner_id=? AND status<>'completed'").get(eventId, String(row.id))?.count ?? 0),
+    capabilities: listCapabilities(db(), eventId, String(row.id)),
+    legacySkills: String(row.skills).split(',').map(value => value.trim()).filter(Boolean),
+  })), incident.category, incident.zone);
+  return ranked.map(item => ({
+    responderId: item.id,
+    name: item.name,
+    email: String(teamMembers.find(row => String(row.id) === item.id)?.email || ''),
+    skills: String(teamMembers.find(row => String(row.id) === item.id)?.skills || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean),
+    zones: item.zones.map(value => value.toLowerCase()),
+    availability: item.availability,
+    activeIncidentsCount: item.activeIncidents,
+    score: Math.max(0, item.score),
+    reason: item.reason,
+  }));
 }

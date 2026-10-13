@@ -8,7 +8,7 @@ type SqliteStatement = {
   get: (...values: unknown[]) => SqliteRow | undefined;
   all: (...values: unknown[]) => SqliteRow[];
 };
-type SqliteDatabase = {
+export type SqliteDatabase = {
   exec: (sql: string) => void;
   prepare: (sql: string) => SqliteStatement;
   close: () => void;
@@ -22,6 +22,23 @@ const { DatabaseSync } = require('node:sqlite') as SqliteModule;
 
 const databasePath = process.env.RUNSHOW_DB_PATH || join(process.cwd(), '.data', 'runshow.sqlite');
 const globalDatabase = globalThis as typeof globalThis & { __runshowDatabase?: SqliteDatabase };
+
+/** Additive, repeatable upgrade for responder profiles created before contact fields existed. */
+export function migrateResponderProfileContactColumns(instance: SqliteDatabase) {
+  const hasTable = instance.prepare("SELECT 1 AS present FROM sqlite_master WHERE type='table' AND name=?").get('responder_profiles');
+  if (!hasTable) throw new Error('Cannot migrate responder contact fields: responder_profiles does not exist.');
+
+  instance.exec('BEGIN IMMEDIATE');
+  try {
+    const columns = new Set(instance.prepare('PRAGMA table_info(responder_profiles)').all().map(row => String(row.name)));
+    if (!columns.has('phone')) instance.exec('ALTER TABLE responder_profiles ADD COLUMN phone TEXT');
+    if (!columns.has('preferred_contact_method')) instance.exec('ALTER TABLE responder_profiles ADD COLUMN preferred_contact_method TEXT');
+    instance.exec('COMMIT');
+  } catch (error) {
+    try { instance.exec('ROLLBACK'); } catch { /* transaction may already be closed */ }
+    throw error;
+  }
+}
 
 export function initDbSchema(instance: SqliteDatabase) {
   instance.exec('PRAGMA foreign_keys = ON;');
@@ -76,7 +93,6 @@ export function initDbSchema(instance: SqliteDatabase) {
         updated_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS events_organizer_idx ON events(organizer_id, start_at);
-      CREATE INDEX IF NOT EXISTS idx_events_visibility ON events(visibility);
       CREATE INDEX IF NOT EXISTS idx_events_lifecycle ON events(lifecycle);
       CREATE INDEX IF NOT EXISTS idx_events_start_at ON events(start_at);
       CREATE TABLE IF NOT EXISTS event_sessions (
@@ -162,6 +178,16 @@ export function initDbSchema(instance: SqliteDatabase) {
         updated_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_ticket_options_event ON ticket_options(event_id);
+      CREATE TABLE IF NOT EXISTS tickets (
+        id TEXT PRIMARY KEY,
+        registration_id TEXT NOT NULL UNIQUE REFERENCES registrations(id) ON DELETE CASCADE,
+        event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        participant_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        ticket_number TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled')),
+        issued_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_tickets_participant_event ON tickets(participant_id, event_id);
       CREATE TABLE IF NOT EXISTS invitations (
         id TEXT PRIMARY KEY,
         event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -192,7 +218,8 @@ export function initDbSchema(instance: SqliteDatabase) {
         reference_number TEXT NOT NULL UNIQUE,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        resolved_at TEXT
+        resolved_at TEXT,
+        escalated_at TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_support_tickets_event ON support_tickets(event_id);
       CREATE INDEX IF NOT EXISTS idx_support_tickets_participant ON support_tickets(participant_id);
@@ -206,6 +233,7 @@ export function initDbSchema(instance: SqliteDatabase) {
         content TEXT NOT NULL,
         is_internal INTEGER NOT NULL DEFAULT 0,
         attachments TEXT,
+        request_key TEXT,
         created_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_messages(ticket_id);
@@ -243,8 +271,39 @@ export function initDbSchema(instance: SqliteDatabase) {
         skills TEXT NOT NULL DEFAULT 'operations',
         zones TEXT NOT NULL DEFAULT 'all',
         availability TEXT NOT NULL DEFAULT 'available' CHECK (availability IN ('available', 'busy', 'offline')),
+        phone TEXT,
+        preferred_contact_method TEXT CHECK (preferred_contact_method IS NULL OR preferred_contact_method IN ('email', 'phone', 'sms')),
         updated_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS responder_capabilities (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        category TEXT NOT NULL CHECK (category IN ('registration_checkin', 'venue_stage', 'transport_logistics', 'safety_emergency', 'participant_support', 'technical_av', 'volunteer_coordination', 'sponsor_partners', 'communications_outreach', 'scheduling_programme')),
+        name TEXT NOT NULL,
+        proficiency TEXT NOT NULL CHECK (proficiency IN ('beginner', 'intermediate', 'advanced', 'expert')),
+        experience_years REAL CHECK (experience_years IS NULL OR experience_years >= 0 AND experience_years <= 80),
+        description TEXT NOT NULL DEFAULT '',
+        verified_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+        verified_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(event_id, user_id, category, name),
+        CHECK ((verified_by IS NULL AND verified_at IS NULL) OR (verified_by IS NOT NULL AND verified_at IS NOT NULL))
+      );
+      CREATE INDEX IF NOT EXISTS responder_capabilities_event_member_idx ON responder_capabilities(event_id, user_id, category);
+      CREATE TABLE IF NOT EXISTS responder_capability_audit (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        capability_id TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        actor_id TEXT NOT NULL REFERENCES users(id),
+        action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'deleted', 'verified', 'unverified')),
+        old_values TEXT,
+        new_values TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS responder_capability_audit_event_idx ON responder_capability_audit(event_id, user_id, created_at DESC);
 
       CREATE TABLE IF NOT EXISTS incidents (
         id TEXT PRIMARY KEY,
@@ -282,6 +341,7 @@ export function initDbSchema(instance: SqliteDatabase) {
         sender_id TEXT NOT NULL REFERENCES users(id),
         message TEXT NOT NULL,
         is_internal INTEGER NOT NULL DEFAULT 0,
+        request_key TEXT,
         created_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS incident_messages_inc_idx ON incident_messages(incident_id, created_at);
@@ -292,6 +352,7 @@ export function initDbSchema(instance: SqliteDatabase) {
         actor_id TEXT NOT NULL REFERENCES users(id),
         action TEXT NOT NULL,
         details TEXT NOT NULL,
+        request_key TEXT,
         created_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS incident_activities_inc_idx ON incident_activities(incident_id, created_at);
@@ -328,10 +389,119 @@ export function initDbSchema(instance: SqliteDatabase) {
         task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         content TEXT NOT NULL,
+        request_key TEXT,
         created_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS task_comments_task_idx ON task_comments(task_id, created_at);
+      CREATE TABLE IF NOT EXISTS personal_todos (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+        is_completed INTEGER NOT NULL DEFAULT 0 CHECK (is_completed IN (0, 1)),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        completed_at TEXT,
+        CHECK ((is_completed = 1 AND completed_at IS NOT NULL) OR (is_completed = 0 AND completed_at IS NULL))
+      );
+      CREATE INDEX IF NOT EXISTS personal_todos_owner_sort_idx
+        ON personal_todos(user_id, is_completed, created_at DESC, id);
     `);
+
+  // Idempotent migrations for databases created before newer columns existed.
+  // Checking the schema first avoids masking errors unrelated to duplicate columns.
+  const ensureColumn = (table: string, column: string, definition: string) => {
+    const exists = instance.prepare(`PRAGMA table_info(${table})`).all().some(row => row.name === column);
+    if (!exists) instance.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+  };
+  ensureColumn('task_comments', 'request_key', 'request_key TEXT');
+  instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS task_comments_request_key_unique ON task_comments(task_id,user_id,request_key) WHERE request_key IS NOT NULL');
+  ensureColumn('support_tickets', 'escalated_at', 'escalated_at TEXT');
+  ensureColumn('support_messages', 'request_key', 'request_key TEXT');
+  instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS support_messages_request_key_unique ON support_messages(ticket_id,sender_id,request_key) WHERE request_key IS NOT NULL');
+  ensureColumn('incident_messages', 'request_key', 'request_key TEXT');
+  instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS incident_messages_request_key_unique ON incident_messages(incident_id,sender_id,request_key) WHERE request_key IS NOT NULL');
+  ensureColumn('incident_activities', 'request_key', 'request_key TEXT');
+  instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS incident_activities_request_key_unique ON incident_activities(incident_id,actor_id,request_key) WHERE request_key IS NOT NULL');
+
+  // Ensure invitations table exists
+  instance.exec(`
+    CREATE TABLE IF NOT EXISTS invitations (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      code TEXT NOT NULL UNIQUE,
+      token TEXT NOT NULL UNIQUE,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL,
+      expires_at TEXT,
+      max_uses INTEGER,
+      used_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'revoked', 'exhausted')),
+      revoked_at TEXT,
+      revoked_by TEXT REFERENCES users(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_invitations_event ON invitations(event_id);
+    CREATE INDEX IF NOT EXISTS idx_invitations_code ON invitations(code);
+    CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
+  `);
+
+  // Events additions
+  ensureColumn('events', 'joining_enabled', 'joining_enabled INTEGER NOT NULL DEFAULT 1');
+  ensureColumn('events', 'invitation_access_mode', "invitation_access_mode TEXT NOT NULL DEFAULT 'both'");
+  ensureColumn('events', 'require_approval', 'require_approval INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('events', 'eligibility_requirements', 'eligibility_requirements TEXT');
+  ensureColumn('events', 'registration_deadline', 'registration_deadline TEXT');
+  migrateResponderProfileContactColumns(instance);
+  ensureColumn('events', 'visibility', "visibility TEXT NOT NULL DEFAULT 'private'");
+  ensureColumn('events', 'current_registrations', 'current_registrations INTEGER NOT NULL DEFAULT 0');
+  instance.exec('CREATE INDEX IF NOT EXISTS idx_events_visibility ON events(visibility)');
+
+  // Invitations additions
+  ensureColumn('invitations', 'token_hash', 'token_hash TEXT');
+  ensureColumn('invitations', 'access_mode', "access_mode TEXT NOT NULL DEFAULT 'both'");
+  ensureColumn('invitations', 'require_approval', 'require_approval INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('invitations', 'outreach_source', 'outreach_source TEXT');
+  ensureColumn('invitations', 'campaign_name', 'campaign_name TEXT');
+
+  // Registrations additions
+  ensureColumn('registrations', 'invitation_id', 'invitation_id TEXT REFERENCES invitations(id)');
+  ensureColumn('registrations', 'invitation_code', 'invitation_code TEXT');
+  ensureColumn('registrations', 'ticket_option_id', 'ticket_option_id TEXT');
+  ensureColumn('registrations', 'payment_status', "payment_status TEXT NOT NULL DEFAULT 'not_applicable'");
+  ensureColumn('registrations', 'reference_number', 'reference_number TEXT');
+  ensureColumn('registrations', 'cancelled_at', 'cancelled_at TEXT');
+  ensureColumn('registrations', 'checked_in_at', 'checked_in_at TEXT');
+
+  // Event intelligence is additive and keeps historical records intact.
+  ensureColumn('tasks', 'related_recommendation_id', 'related_recommendation_id TEXT');
+  instance.exec(`
+    CREATE TABLE IF NOT EXISTS event_metric_snapshots (
+      id TEXT PRIMARY KEY, event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      snapshot_day TEXT NOT NULL, taken_at TEXT NOT NULL, metrics_json TEXT NOT NULL,
+      UNIQUE(event_id, snapshot_day)
+    );
+    CREATE INDEX IF NOT EXISTS event_metric_snapshots_event_day_idx ON event_metric_snapshots(event_id, snapshot_day);
+    CREATE TABLE IF NOT EXISTS event_intelligence_analyses (
+      id TEXT PRIMARY KEY, event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      generated_at TEXT NOT NULL, expires_at TEXT NOT NULL, model TEXT NOT NULL,
+      analysis_json TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS event_intelligence_latest_idx ON event_intelligence_analyses(event_id, generated_at DESC);
+    CREATE TABLE IF NOT EXISTS event_intelligence_recommendations (
+      id TEXT PRIMARY KEY, event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      category TEXT NOT NULL, priority TEXT NOT NULL, evidence_json TEXT NOT NULL,
+      explanation TEXT NOT NULL, action TEXT NOT NULL, expected_outcome TEXT NOT NULL,
+      related_task_id TEXT, related_incident_id TEXT, source TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','accepted','in_progress','completed','dismissed')),
+      created_at TEXT NOT NULL, valid_until TEXT
+    );
+    CREATE INDEX IF NOT EXISTS event_intelligence_recs_event_idx ON event_intelligence_recommendations(event_id, status, created_at DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS tasks_related_recommendation_unique ON tasks(related_recommendation_id) WHERE related_recommendation_id IS NOT NULL;
+    CREATE TABLE IF NOT EXISTS event_recommendation_history (
+      id TEXT PRIMARY KEY, recommendation_id TEXT NOT NULL REFERENCES event_intelligence_recommendations(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id), from_status TEXT NOT NULL, to_status TEXT NOT NULL,
+      outcome TEXT, created_at TEXT NOT NULL
+    );
+  `);
 }
 
 function database(): SqliteDatabase {

@@ -45,12 +45,18 @@ export function eventFromRow(row: Record<string, unknown>): Event {
     audience: String(row.audience || ''), format: row.format as Event['format'], venue: row.venue ? String(row.venue) : undefined,
     meetingUrl: row.meeting_url ? String(row.meeting_url) : undefined, joiningInstructions: row.joining_instructions ? String(row.joining_instructions) : undefined,
     lifecycle: lifecycle(startAt, endAt), sessions: sessionsFor(eventId),
+    joiningEnabled: row.joining_enabled === undefined ? true : Boolean(row.joining_enabled),
+    invitationAccessMode: (row.invitation_access_mode as Event['invitationAccessMode']) || 'both',
+    requireApproval: Boolean(row.require_approval),
+    eligibilityRequirements: row.eligibility_requirements ? String(row.eligibility_requirements) : undefined,
+    registrationDeadline: row.registration_deadline ? String(row.registration_deadline) : undefined,
   };
 }
 
 export function accessibleEventWhere(userId: string, role: string) {
   if (role === 'organizer') return { sql: 'e.organizer_id=?', values: [userId] };
-  return { sql: 'EXISTS (SELECT 1 FROM team_assignments ta WHERE ta.event_id=e.id AND ta.user_id=? AND ta.status=\'active\') OR EXISTS (SELECT 1 FROM registrations r WHERE r.event_id=e.id AND r.participant_id=? AND r.status<>\'cancelled\')', values: [userId, userId] };
+  if (role === 'sub_organizer') return { sql: 'EXISTS (SELECT 1 FROM team_assignments ta WHERE ta.event_id=e.id AND ta.user_id=? AND ta.status=\'active\')', values: [userId] };
+  return { sql: 'EXISTS (SELECT 1 FROM registrations r WHERE r.event_id=e.id AND r.participant_id=? AND r.status=\'confirmed\')', values: [userId] };
 }
 
 export function canAccessEvent(eventId: string, userId: string, role: string): boolean {
@@ -75,10 +81,17 @@ export function createEvent(input: Record<string, unknown>, organizerId: string)
   const capacity = input.participantCapacity == null ? null : Number(input.participantCapacity);
   const target = Number(input.targetRegistrations || 0); const attendance = Number(input.expectedAttendance || 0);
   if (![capacity, target, attendance].every(value => value === null || Number.isInteger(value) && value >= 0) || (capacity !== null && attendance > capacity)) throw new Error('Attendance and capacity values are invalid.');
+
+  const joiningEnabled = input.joiningEnabled !== false ? 1 : 0;
+  const invitationAccessMode = input.invitationAccessMode === 'link' ? 'link' : input.invitationAccessMode === 'code' ? 'code' : 'both';
+  const requireApproval = input.requireApproval ? 1 : 0;
+  const eligibilityRequirements = input.eligibilityRequirements ? String(input.eligibilityRequirements).trim() : null;
+  const registrationDeadline = input.registrationDeadline ? String(input.registrationDeadline).trim() : null;
+
   const eventId = id('evt'); const timestamp = nowIso(); const database = db();
   database.exec('BEGIN');
   try {
-    database.prepare(`INSERT INTO events(id,organizer_id,name,description,event_type,format,start_at,end_at,timezone,venue,meeting_url,joining_instructions,audience,expected_attendance,registration_target,capacity,lifecycle,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, organizerId, name, String(input.objectives || input.description || ''), type, format, startAt, endAt, String(input.timezone || 'UTC'), String(input.venue || '').trim() || null, String(input.meetingUrl || '').trim() || null, String(input.joiningInstructions || '').trim() || null, String(input.audience || ''), attendance, target, capacity, lifecycle(startAt, endAt), timestamp, timestamp);
+    database.prepare(`INSERT INTO events(id,organizer_id,name,description,event_type,format,start_at,end_at,timezone,venue,meeting_url,joining_instructions,audience,expected_attendance,registration_target,capacity,lifecycle,joining_enabled,invitation_access_mode,require_approval,eligibility_requirements,registration_deadline,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(eventId, organizerId, name, String(input.objectives || input.description || ''), type, format, startAt, endAt, String(input.timezone || 'UTC'), String(input.venue || '').trim() || null, String(input.meetingUrl || '').trim() || null, String(input.joiningInstructions || '').trim() || null, String(input.audience || ''), attendance, target, capacity, lifecycle(startAt, endAt), joiningEnabled, invitationAccessMode, requireApproval, eligibilityRequirements, registrationDeadline, timestamp, timestamp);
     const sessions = Array.isArray(input.sessions) ? input.sessions : [];
     for (const session of sessions as Record<string, unknown>[]) {
       const sessionStart = `${String(session.date)}T${String(session.startTime)}:00`; const sessionEnd = `${String(session.date)}T${String(session.endTime)}:00`;
@@ -92,11 +105,11 @@ export function createEvent(input: Record<string, unknown>, organizerId: string)
     database.exec('COMMIT');
   } catch (error) { database.exec('ROLLBACK'); throw error; }
   const event = eventFromRow(database.prepare('SELECT * FROM events WHERE id=?').get(eventId)!);
-  const tasks = database.prepare('SELECT * FROM tasks WHERE event_id=? ORDER BY created_at,id').all(eventId).map(taskFromRow);
+  const tasks = database.prepare('SELECT t.*,u.name AS owner_name FROM tasks t LEFT JOIN users u ON u.id=t.owner_id WHERE t.event_id=? ORDER BY t.created_at,t.id').all(eventId).map(taskFromRow);
   return { ...event, tasks };
 }
 
 export function taskFromRow(row: Record<string, unknown>): Task {
   const assignee = ['marketing', 'partnerships', 'operations', 'programme', 'leadership'].includes(String(row.department)) ? String(row.department) as Task['assignee'] : 'operations';
-  return { id: String(row.id), eventId: String(row.event_id), title: String(row.title), description: String(row.description || ''), priority: row.priority as Task['priority'], status: row.status as Task['status'], deadline: String(row.due_at), assignee, functionName: row.department ? String(row.department) : undefined };
+  return { id: String(row.id), eventId: String(row.event_id), title: String(row.title), description: String(row.description || ''), priority: row.priority as Task['priority'], status: row.status as Task['status'], deadline: String(row.due_at), assignee, functionName: row.department ? String(row.department) : undefined, ownerId: row.owner_id ? String(row.owner_id) : undefined, ownerName: row.owner_name ? String(row.owner_name) : undefined };
 }
