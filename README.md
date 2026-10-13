@@ -88,9 +88,12 @@ npm run build
 
 ### Starting the Development Server
 ```bash
-npm run dev
+# Live SQLite/API mode (default; explicit for clarity)
+NEXT_PUBLIC_USE_API=true npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+The invitation and registration workflow uses the server API and `.data/runshow.sqlite`. API mode is the default when `NEXT_PUBLIC_USE_API` is unset; set `NEXT_PUBLIC_USE_API=false` only to use browser-only demo fixtures. If an existing database predates invitations or tickets, restarting the server applies the idempotent schema additions without resetting `.data/runshow.sqlite`.
 
 ---
 
