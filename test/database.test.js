@@ -46,6 +46,22 @@ describe('Database and Schema Integrity Tests', () => {
     assert.ok(tables.includes('incident_assignments'));
     assert.ok(tables.includes('in_app_notifications'));
     assert.ok(tables.includes('responder_profiles'));
+    assert.ok(tables.includes('event_metric_snapshots'));
+    assert.ok(tables.includes('event_intelligence_analyses'));
+    assert.ok(tables.includes('event_intelligence_recommendations'));
+    assert.ok(tables.includes('event_recommendation_history'));
+  });
+
+  test('Creates persistent snapshot and recommendation history schema idempotently', () => {
+    const now = new Date().toISOString();
+    testDb.prepare("INSERT INTO users(id,name,email,password_hash,role,status,created_at,updated_at) VALUES('intel_org','Organizer','intel@test.com','hash','organizer','active',?,?)").run(now,now);
+    testDb.prepare("INSERT INTO events(id,organizer_id,name,event_type,format,start_at,end_at,timezone,created_at,updated_at) VALUES('intel_event','intel_org','Intelligence event','workshop','virtual',?,?, 'UTC',?,?)").run(now,now,now,now);
+    testDb.prepare("INSERT INTO event_metric_snapshots(id,event_id,snapshot_day,taken_at,metrics_json) VALUES('snap1','intel_event','2026-10-13',?,'{}')").run(now);
+    testDb.prepare("INSERT INTO event_intelligence_recommendations(id,event_id,category,priority,evidence_json,explanation,action,expected_outcome,source,status,created_at) VALUES('rec1','intel_event','operations','high','[]','reason','action','outcome','test','open',?)").run(now);
+    testDb.prepare("INSERT INTO event_recommendation_history(id,recommendation_id,user_id,from_status,to_status,created_at) VALUES('hist1','rec1','intel_org','open','accepted',?)").run(now);
+    initDbSchema(testDb);
+    assert.equal(testDb.prepare("SELECT COUNT(*) count FROM event_metric_snapshots WHERE event_id='intel_event'").get().count,1);
+    assert.equal(testDb.prepare("SELECT to_status FROM event_recommendation_history WHERE id='hist1'").get().to_status,'accepted');
   });
 
   test('Enforces foreign key relationships and cascade deletes', () => {
