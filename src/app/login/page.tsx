@@ -14,6 +14,7 @@ type AuthView = 'signin' | 'signup';
 
 export default function LoginPage() {
   const router = useRouter();
+  const redirect = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('redirect');
   const session = useDemoSession();
   const [view, setView] = useState<AuthView>('signin');
   const [email, setEmail] = useState('');
@@ -66,7 +67,7 @@ export default function LoginPage() {
       }
       if (authenticatedSession.role === 'organizer') useDashboardStore.getState().setSelectedView('home');
       saveDemoSession(authenticatedSession);
-      router.replace(destinationForRole(authenticatedSession.role));
+      router.replace(authenticatedSession.role === 'participant' && redirect?.startsWith('/') ? redirect : destinationForRole(authenticatedSession.role));
     } catch {
       setError('Sign-in could not be completed. Please try again.');
     } finally {
@@ -95,7 +96,7 @@ export default function LoginPage() {
       setConfirmPassword('');
       setFullName('');
       focusAfterViewChange.current = true;
-      router.replace(destinationForRole(createdSession.role));
+      router.replace(createdSession.role === 'participant' && redirect?.startsWith('/') ? redirect : destinationForRole(createdSession.role));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to create your participant account.');
     } finally {
@@ -130,9 +131,9 @@ export default function LoginPage() {
 
             {view === 'signin' ? (
               <section aria-label="Sign in to your account">
-                <fieldset className="mb-5">
+                <fieldset className="mb-5 min-w-0">
                   <legend className="mb-2 text-sm font-medium text-[var(--text-primary)]">Choose your workspace</legend>
-                  <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Workspace type">
+                  <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Workspace type">
                     {[
                       { role: 'organizer' as const, label: 'Main Organizer', description: 'Plan and oversee events', Icon: ShieldCheck },
                       { role: 'sub_organizer' as const, label: 'Sub-organizer', description: 'Manage assigned work', Icon: ClipboardList },
@@ -140,25 +141,28 @@ export default function LoginPage() {
                     ].map(option => {
                       const account = DEMO_ACCOUNTS.find(item => item.role === option.role);
                       const checked = selectedWorkspace === option.role;
-                      return <label key={option.role} className={`relative flex min-h-24 cursor-pointer items-start gap-2 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-[var(--focus)] ${checked ? 'border-[var(--action-primary)] bg-[var(--success-surface)]' : 'border-[var(--border)] bg-[var(--surface-card)] hover:bg-[var(--surface-elevated)]'}`}>
-                        <input
-                          type="radio"
-                          name="workspace"
-                          value={option.role}
-                          checked={checked}
-                          onChange={() => {
-                            setSelectedWorkspace(option.role);
-                            if (account && !isUsingServerAuth()) {
-                              setEmail(account.email);
-                              setPassword('');
-                            }
-                            setError('');
-                          }}
-                          className="mt-1 h-4 w-4 shrink-0 accent-[var(--action-primary)]"
-                        />
-                        <span className="min-w-0">
-                          <span className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]"><option.Icon className="h-4 w-4 shrink-0 text-[var(--action-primary)]" aria-hidden="true" />{option.label}</span>
-                          <span className="mt-1 block text-xs leading-4 text-[var(--text-secondary)]">{option.description}</span>
+                      return <label key={option.role} className={`box-border grid h-full min-h-32 min-w-0 cursor-pointer grid-rows-[auto_auto_1fr] gap-1.5 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-[var(--focus)] ${checked ? 'border-[var(--action-primary)] bg-[var(--success-surface)]' : 'border-[var(--border)] bg-[var(--surface-card)] hover:bg-[var(--surface-elevated)]'}`}>
+                        <span className="grid min-w-0 grid-cols-[1rem_1rem] items-center gap-1.5">
+                          <input
+                            type="radio"
+                            name="workspace"
+                            value={option.role}
+                            checked={checked}
+                            onChange={() => {
+                              setSelectedWorkspace(option.role);
+                              if (account && !isUsingServerAuth()) {
+                                setEmail(account.email);
+                                setPassword('');
+                              }
+                              setError('');
+                            }}
+                            className="h-4 w-4 shrink-0 accent-[var(--action-primary)]"
+                          />
+                          <option.Icon className="h-4 w-4 shrink-0 text-[var(--action-primary)]" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 break-words text-sm font-semibold leading-5 text-[var(--text-primary)]">{option.label}</span>
+                        <span className="min-w-0 break-words text-xs leading-4 text-[var(--text-secondary)]">
+                          {option.description}
                         </span>
                       </label>;
                     })}

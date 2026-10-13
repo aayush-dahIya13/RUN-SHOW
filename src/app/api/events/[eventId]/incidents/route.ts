@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, id, nowIso } from '@/lib/server/db';
 import { currentUser } from '@/lib/server/auth';
-import { jsonError, requireRole } from '@/lib/server/http';
+import { jsonError, requireRole, validOrigin } from '@/lib/server/http';
 import {
   calculatePriority,
   createNotification,
@@ -9,6 +9,7 @@ import {
   logIncidentActivity,
 } from '@/lib/server/incident-repository';
 import type { IncidentCategory, IncidentUrgency } from '@/lib/types';
+import { canAccessEvent } from '@/lib/server/event-repository';
 
 export async function GET(
   request: NextRequest,
@@ -18,6 +19,7 @@ export async function GET(
   const authError = requireRole(user, ['organizer', 'sub_organizer', 'participant']);
   if (authError) return authError;
   const { eventId } = await params;
+  if (!canAccessEvent(eventId, user!.id, user!.role)) return jsonError('Event not found.', 404, 'EVENT_NOT_FOUND');
 
   // Verify access
   if (user!.role === 'participant') {
@@ -27,13 +29,7 @@ export async function GET(
   }
 
   if (user!.role === 'sub_organizer') {
-    // Can view all event incidents or ones assigned to them
-    const url = new URL(request.url);
-    const assignedOnly = url.searchParams.get('assignedToMe') === 'true';
-    const incidents = listIncidentsForEvent(
-      eventId,
-      assignedOnly ? { responderId: user!.id } : undefined
-    );
+    const incidents = listIncidentsForEvent(eventId, { responderId: user!.id });
     return NextResponse.json(incidents);
   }
 
@@ -46,10 +42,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
+  if (!validOrigin(request)) return jsonError('Invalid request origin.', 403, 'INVALID_ORIGIN');
   const user = await currentUser();
   const authError = requireRole(user, ['organizer', 'sub_organizer', 'participant']);
   if (authError) return authError;
   const { eventId } = await params;
+  if (!canAccessEvent(eventId, user!.id, user!.role)) return jsonError('Event not found.', 404, 'EVENT_NOT_FOUND');
+  if (user!.role === 'sub_organizer' && !db().prepare("SELECT 1 FROM team_assignments WHERE event_id=? AND user_id=? AND status='active'").get(eventId, user!.id)) return jsonError('Event not found.', 404, 'EVENT_NOT_FOUND');
 
   const body = await request.json().catch(() => ({}));
   const category = String(body.category || 'other').trim() as IncidentCategory;
