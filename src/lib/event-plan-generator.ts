@@ -52,6 +52,12 @@ export function getDefaultEventSetupForm(): EventSetupFormData {
     sessions: [],
     participantCapacity: undefined,
     expectedAttendance: 0,
+    joiningEnabled: true,
+    invitationAccessMode: 'both',
+    invitationExpiry: '',
+    invitationMaxUses: undefined,
+    requireApproval: false,
+    eligibilityRequirements: '',
   };
 }
 

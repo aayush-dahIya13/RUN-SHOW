@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Input';
 import { isTaskOverdue } from '@/lib/event-utils';
+import { suggestResponders, type TeamMemberProfile } from '@/lib/team-capabilities';
 
 const STATUS_LABELS: Record<TaskStatus, string> = { pending: 'Pending', 'in-progress': 'In Progress', completed: 'Completed', blocked: 'Blocked' };
 const STATUS_ICONS = { pending: Clock, 'in-progress': AlertCircle, completed: CheckCircle, blocked: XCircle };
@@ -64,7 +65,7 @@ function TaskCard({ task, eventName, index, busy, onClick, onToggle }: TaskCardP
         <div className="min-w-0 flex-1 cursor-pointer" onClick={onClick} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } }} role="button" tabIndex={0} aria-label={`Open task ${task.title}`}>
           <div className="flex items-start justify-between gap-2"><h4 className={`truncate pr-2 font-semibold text-[var(--text-primary)] transition-[text-decoration-color,color] duration-200 ${completed ? 'text-[var(--text-secondary)] line-through decoration-[var(--action-primary)]' : ''}`}>{task.title}</h4><Badge variant="neutral" size="sm" className={STATUS_COLORS[task.status]}>{STATUS_LABELS[task.status]}</Badge></div>
           <p className={`mt-1 line-clamp-2 text-sm ${completed ? 'text-[var(--text-muted)]' : 'text-[var(--text-secondary)]'}`}>{task.description}</p>
-          <p className="mt-2 truncate text-xs font-medium text-[var(--text-primary)]">Event: {eventName}</p>
+          <p className="mt-2 truncate text-xs font-medium text-[var(--text-primary)]">Event: {eventName}{task.ownerName ? ` · Assigned to ${task.ownerName}` : ''}</p>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]"><span className="flex items-center gap-1"><Clock className="h-3 w-3" aria-hidden="true" />Due: {new Date(task.deadline).toLocaleDateString()}</span><span className="flex items-center gap-1"><User className="h-3 w-3" aria-hidden="true" />{task.assignee}</span><span className="flex items-center gap-1"><Flag className="h-3 w-3" aria-hidden="true" />{task.priority}</span>{overdue && <span className="rounded border border-[var(--accent)]/60 bg-[var(--accent-muted)] px-2 py-0.5 font-semibold text-[var(--text-primary)]">Overdue</span>}{task.status === 'blocked' && <span className="rounded border border-[var(--border)] bg-[var(--neutral-surface)] px-2 py-0.5 font-semibold text-[var(--text-primary)]">Blocked</span>}</div>
         </div>
         <StatusIcon className={`mt-1 h-5 w-5 shrink-0 ${completed ? 'text-[var(--action-primary)]' : task.status === 'blocked' ? 'text-[var(--danger)]' : 'text-[var(--text-secondary)]'}`} aria-label={STATUS_LABELS[task.status]} />
@@ -78,7 +79,7 @@ function TaskSection({ title, count, tasks, events, busyIds, onClick, onToggle, 
 }
 
 export function Tasks() {
-  const { tasks, risks, events, selectedRole, completeTask, openDrawer, updateTaskStatus, setupError } = useDashboardStore();
+  const { tasks, risks, events, selectedRole, completeTask, openDrawer, updateTaskStatus, setupError, isUsingApi } = useDashboardStore();
   const [statusFilter, setStatusFilter] = React.useState<TaskStatus | 'all'>('all');
   const [eventFilter, setEventFilter] = React.useState('all');
   const [roleFilter, setRoleFilter] = React.useState<Role | 'all'>(selectedRole === 'leadership' ? 'all' : selectedRole);
@@ -94,7 +95,58 @@ export function Tasks() {
   const [quickTitle, setQuickTitle] = React.useState('');
   const [quickAssignee, setQuickAssignee] = React.useState<Role>('operations');
   const [quickPriority, setQuickPriority] = React.useState<Task['priority']>('medium');
+  const [quickResponderId, setQuickResponderId] = React.useState('');
+  const [quickCapability, setQuickCapability] = React.useState('');
+  const [quickZone, setQuickZone] = React.useState('');
+  const [responderProfiles, setResponderProfiles] = React.useState<TeamMemberProfile[]>([]);
   const [isAdding, setIsAdding] = React.useState(false);
+  const targetEventId = eventFilter !== 'all' ? eventFilter : events[0]?.id || '';
+
+  React.useEffect(() => {
+    if (!isUsingApi || !targetEventId) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const latest = await api.getTasks(targetEventId);
+        if (cancelled) return;
+        useDashboardStore.setState(state => ({
+          tasks: [...state.tasks.filter(task => task.eventId !== targetEventId), ...latest.map(task => ({ ...task, eventId: targetEventId }))],
+        }));
+      } catch {
+        // Keep the last successfully loaded task state visible during transient refresh failures.
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 20_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [isUsingApi, targetEventId]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(async () => {
+      setQuickResponderId('');
+      if (!targetEventId) { setResponderProfiles([]); return; }
+      try {
+        const members = await api.listTeamMembers(targetEventId);
+        if (!cancelled) setResponderProfiles(members);
+      } catch {
+        if (!cancelled) setResponderProfiles([]);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [targetEventId]);
+
+  const availableTaskResponders = responderProfiles.filter(member => member.role === 'sub_organizer');
+  const suggestedResponders = quickCapability.trim() ? suggestResponders(availableTaskResponders.map(member => ({
+    id: member.id,
+    name: member.name,
+    availability: member.availability,
+    zones: member.zones.split(',').map(zone => zone.trim()).filter(Boolean),
+    activeIncidents: member.performance.openIncidents,
+    activeTasks: member.performance.tasksActive,
+    capabilities: member.capabilities,
+    legacySkills: member.skills.split(',').map(skill => skill.trim()).filter(Boolean),
+  })), quickCapability, quickZone).slice(0, 3) : [];
 
   // Operational urgency sorting:
   // 1. Critical incident/urgent priority
@@ -126,13 +178,14 @@ export function Tasks() {
     setIsAdding(true);
     setTaskError('');
     try {
-      const targetEventId = eventFilter !== 'all' ? eventFilter : events[0]?.id || 'event-techsprint-2026';
+      if (!targetEventId) throw new Error('Choose an event before adding a task.');
       const created = await api.createTask(targetEventId, {
         title: quickTitle.trim(),
         assignee: quickAssignee,
         priority: quickPriority,
         status: 'pending',
         deadline: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
+        ownerId: quickResponderId || undefined,
       });
       useDashboardStore.setState(state => ({
         tasks: [created, ...state.tasks],
@@ -224,6 +277,22 @@ export function Tasks() {
               </button>
             </div>
           </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <input value={quickCapability} onChange={event => setQuickCapability(event.target.value)} maxLength={80} placeholder="Required capability (optional)" aria-label="Required capability for responder suggestions" className="rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+            <input value={quickZone} onChange={event => setQuickZone(event.target.value)} maxLength={80} placeholder="Zone (optional)" aria-label="Task zone for responder suggestions" className="rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+          </div>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="sr-only" htmlFor="quick-task-responder">Assign to sub-organizer</label>
+            <select id="quick-task-responder" value={quickResponderId} onChange={event => setQuickResponderId(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 py-2 text-xs text-[var(--text-primary)]">
+              <option value="">No individual responder</option>
+              {availableTaskResponders.map(member => <option key={member.id} value={member.id}>{member.name} · {member.responsibility}</option>)}
+            </select>
+            {availableTaskResponders.length === 0 && <p className="text-[11px] text-[var(--text-muted)]">No sub-organizers are assigned to this event; the existing role assignment remains in effect.</p>}
+          </div>
+          {suggestedResponders.length > 0 && <section className="mt-3 rounded-lg border border-[var(--divider)] p-3" aria-label="Suggested responders">
+            <p className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">Suggested Responders · choose to select, never auto-assigned</p>
+            <div className="grid gap-2 sm:grid-cols-3">{suggestedResponders.map(responder => <button key={responder.id} type="button" onClick={() => setQuickResponderId(responder.id)} aria-pressed={quickResponderId === responder.id} className={`rounded-md border p-2 text-left focus:outline-none focus:ring-2 focus:ring-[var(--focus)] ${quickResponderId === responder.id ? 'border-[var(--action-primary)] bg-[var(--success-surface)]/50' : 'border-[var(--divider)] hover:bg-[var(--surface-elevated)]'}`}><span className="block text-xs font-semibold text-[var(--text-primary)]">{responder.name}</span><span className="mt-1 block text-[10px] text-[var(--text-secondary)]">{responder.reason}</span></button>)}</div>
+          </section>}
         </form>
 
         <TaskSection title="Done" count={completedCount} tasks={doneTasks} events={events} busyIds={busyIds} onClick={task => openDrawer(task, 'task')} onToggle={toggleTask} empty="Completed tasks will appear here." />

@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { AccountRole } from './types';
+export { destinationForRole } from './role-routing';
 
 export type DemoRole = AccountRole;
 export interface DemoSession { id: string; email: string; name: string; role: DemoRole; isDemo?: boolean }
@@ -17,7 +18,7 @@ export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
 
 const SESSION_KEY = 'runshow-demo-session';
 const ACCOUNTS_KEY = 'runshow-demo-account-records';
-const USE_SERVER_AUTH = process.env.NEXT_PUBLIC_USE_API === 'true';
+const USE_SERVER_AUTH = process.env.NEXT_PUBLIC_USE_API !== 'false';
 const listeners = new Set<() => void>();
 let cachedSession: DemoSession | null | undefined;
 let cachedAccounts: DemoAccountRecord[] | undefined;
@@ -264,13 +265,4 @@ export function clearDemoSession() {
   }
   discardStoredSession();
   invalidateAndNotify();
-}
-
-export function destinationForRole(role: DemoRole) {
-  switch (normalizeRole(role)) {
-    case 'organizer': return '/organizer/dashboard';
-    case 'sub_organizer': return '/sub-organizer/dashboard';
-    case 'participant': return '/participant/dashboard';
-    default: return '/login';
-  }
 }

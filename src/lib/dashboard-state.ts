@@ -272,6 +272,11 @@ export const useDashboardStore = create<StoreState>()(
             operationalRequirements: draft.operationalRequirements.trim() || undefined,
             sessions: draft.sessions,
             participantInstructions: draft.sessions?.length ? 'Follow the published participant schedule and check event-day venue details before arrival.' : undefined,
+            joiningEnabled: draft.joiningEnabled !== false,
+            invitationAccessMode: draft.invitationAccessMode || 'both',
+            requireApproval: Boolean(draft.requireApproval),
+            eligibilityRequirements: draft.eligibilityRequirements?.trim() || undefined,
+            registrationDeadline: draft.registrationDeadline || undefined,
           };
 
           const createdEvent = get().isUsingApi

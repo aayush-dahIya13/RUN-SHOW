@@ -17,6 +17,7 @@ import {
   IncidentMessage,
   ResponderRecommendation,
   InAppNotification,
+  Invitation,
 } from './types';
 import {
   DEMO_EVENT,
@@ -26,8 +27,11 @@ import {
 } from './demo-data';
 import { calculateKPIs, simulateRegistrationOutcome } from './calculations';
 import { generateRecommendations } from './recommendation-rules';
+import type { TeamCapability, TeamMemberProfile } from './team-capabilities';
 
-const USE_API = process.env.NEXT_PUBLIC_USE_API === 'true';
+// Live API mode is the safe default for the application. Set this explicitly to
+// "false" only when the local demo fixture experience is intentional.
+const USE_API = process.env.NEXT_PUBLIC_USE_API !== 'false';
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '/api';
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -340,20 +344,77 @@ export const api = {
     };
   },
 
-  async listTeamMembers(eventId: string): Promise<Array<{ id: string; name: string; email: string; role: string; responsibility: string; availability: string; skills: string; zones: string; activeIncidents: number }>> {
+  async listTeamMembers(eventId: string): Promise<TeamMemberProfile[]> {
     if (USE_API) return fetchJson(`/events/${eventId}/team`);
     return [];
+  },
+
+  async updateTeamCapabilities(eventId: string, userId: string, capabilities: Array<Omit<TeamCapability, 'id' | 'eventId' | 'userId' | 'verifiedBy' | 'verifiedAt'> & { id?: string }>): Promise<TeamCapability[]> {
+    if (USE_API) {
+      const result = await fetchJson<{ capabilities: TeamCapability[] }>(`/events/${eventId}/team/${userId}/capabilities`, {
+        method: 'PUT', body: JSON.stringify({ capabilities }),
+      });
+      return result.capabilities;
+    }
+    throw new Error('Capability editing is unavailable in demo mode.');
+  },
+
+  async updateTeamContact(eventId: string, userId: string, contact: { phone: string | null; preferredContactMethod: 'email' | 'phone' | 'sms' | null }): Promise<{ phone: string | null; preferredContactMethod: 'email' | 'phone' | 'sms' | null }> {
+    if (USE_API) return fetchJson(`/events/${eventId}/team/${userId}/contact`, { method: 'PATCH', body: JSON.stringify(contact) });
+    throw new Error('Contact editing is unavailable in demo mode.');
   },
 
   async createSubOrganizer(payload: {
     name: string; email: string; password: string;
     responsibility: string; eventId: string;
     skills?: string; zones?: string;
+    phone?: string; preferredContactMethod?: 'email' | 'phone' | 'sms' | '';
   }): Promise<{ user: { id: string; name: string; email: string }; assignment: { id: string } }> {
     if (USE_API) {
       return fetchJson('/team/create', {
         method: 'POST',
         body: JSON.stringify(payload),
+      });
+    }
+    throw new Error('Not implemented in mock mode');
+  },
+
+  async listInvitations(eventId: string): Promise<Invitation[]> {
+    if (USE_API) return fetchJson<Invitation[]>(`/events/${eventId}/invitations`);
+    return [];
+  },
+
+  async createInvitation(eventId: string, payload?: {
+    expiresAt?: string | null;
+    maxUses?: number | null;
+    accessMode?: 'link' | 'code' | 'both';
+    requireApproval?: boolean;
+    customCode?: string;
+    outreachSource?: string;
+    campaignName?: string;
+  }): Promise<Invitation & { joinUrl: string; joinCodeUrl: string }> {
+    if (USE_API) {
+      return fetchJson<Invitation & { joinUrl: string; joinCodeUrl: string }>(`/events/${eventId}/invitations`, {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    }
+    throw new Error('Not implemented in mock mode');
+  },
+
+  async revokeInvitation(eventId: string, invitationId: string): Promise<void> {
+    if (USE_API) {
+      await fetchJson(`/events/${eventId}/invitations/${invitationId}`, {
+        method: 'DELETE',
+      });
+    }
+  },
+
+  async regenerateInvitation(eventId: string, invitationId: string): Promise<Invitation & { joinUrl: string; joinCodeUrl: string }> {
+    if (USE_API) {
+      return fetchJson<Invitation & { joinUrl: string; joinCodeUrl: string }>(`/events/${eventId}/invitations/${invitationId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'regenerate' }),
       });
     }
     throw new Error('Not implemented in mock mode');

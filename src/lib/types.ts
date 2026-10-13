@@ -35,6 +35,8 @@ export interface ParticipantEventLink {
   eventId: string;
   registrationStatus?: 'invited' | 'registered' | 'cancelled';
   createdAt?: string;
+  referenceNumber?: string;
+  ticketNumber?: string;
 }
 
 export interface Announcement {
@@ -97,6 +99,9 @@ export interface Event {
   bannerImageUrl?: string;
   organizerInstitution?: string;
   tags?: string[];
+  joiningEnabled?: boolean;
+  invitationAccessMode?: 'link' | 'code' | 'both';
+  requireApproval?: boolean;
 }
 
 export interface TicketOption {
@@ -118,7 +123,7 @@ export interface Invitation {
   id: string;
   eventId: string;
   code: string;
-  token: string;
+  token?: string;
   createdBy: string;
   createdAt: string;
   expiresAt?: string;
@@ -127,6 +132,11 @@ export interface Invitation {
   status: InvitationStatus;
   revokedAt?: string;
   revokedBy?: string;
+  accessMode?: 'link' | 'code' | 'both';
+  requireApproval?: boolean;
+  registrationCount?: number;
+  outreachSource?: string | null;
+  campaignName?: string | null;
 }
 
 export interface Registration {
@@ -135,7 +145,8 @@ export interface Registration {
   participantId: string;
   ticketOptionId?: string;
   invitationCode?: string;
-  status: 'confirmed' | 'cancelled' | 'waitlisted';
+  invitationId?: string;
+  status: 'confirmed' | 'cancelled' | 'waitlisted' | 'pending';
   paymentStatus: PaymentStatus;
   registeredAt: string;
   cancelledAt?: string;
@@ -208,6 +219,11 @@ export interface Task {
   relatedRecommendationId?: string;
   eventId?: string;
   functionName?: string;
+  ownerId?: string;
+  ownerName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  comments?: TaskComment[];
 }
 
 export interface KPIData {
@@ -245,7 +261,7 @@ export interface OutreachDataPoint {
 
 export interface DashboardState {
   selectedRole: Role;
-  selectedView: 'home' | 'setup' | 'overview' | 'calendar' | 'event-health' | 'settings' | 'recommendations' | 'tasks' | 'partners' | 'operations' | 'incidents' | 'help-centre' | 'team';
+  selectedView: 'home' | 'setup' | 'overview' | 'calendar' | 'event-health' | 'settings' | 'recommendations' | 'tasks' | 'my-todo' | 'partners' | 'operations' | 'incidents' | 'help-centre' | 'team' | 'invitations';
   risks: Risk[];
   recommendations: Recommendation[];
   tasks: Task[];
@@ -301,6 +317,12 @@ export interface EventSetupFormData {
   participantCapacity?: number;
   expectedAttendance: number;
   sessions?: EventSession[];
+  joiningEnabled?: boolean;
+  invitationAccessMode?: 'link' | 'code' | 'both';
+  invitationExpiry?: string;
+  invitationMaxUses?: number;
+  requireApproval?: boolean;
+  eligibilityRequirements?: string;
 }
 
 export interface EventMilestone {

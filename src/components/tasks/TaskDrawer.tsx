@@ -86,6 +86,14 @@ export function TaskDrawerContent({ state, onClose }: TaskDrawerProps) {
             <p className="text-[var(--text-secondary)] leading-relaxed">{task.description}</p>
           </div>
 
+          {task.comments?.length ? <section className="space-y-3" aria-label="Task progress history">
+            <h3 className="text-sm font-medium text-[var(--text-secondary)]">Progress updates</h3>
+            {task.comments.map(comment => <article key={comment.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+              <p className="whitespace-pre-wrap text-sm text-[var(--text-primary)]">{comment.content}</p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{comment.userName} · {new Date(comment.createdAt).toLocaleString()}</p>
+            </article>)}
+          </section> : null}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">Assignee</label>
