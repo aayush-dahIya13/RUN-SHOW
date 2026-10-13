@@ -1,77 +1,174 @@
 'use client';
 
-import { useState } from 'react';
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, MapPin, Users } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, Bell, CalendarClock, Check, CircleUserRound, ClipboardList, Clock3, LifeBuoy, MapPin, RefreshCw, Send, Settings2, ShieldAlert } from 'lucide-react';
 import { useDemoSession } from '@/lib/demo-auth';
-import { useDashboardStore } from '@/lib/dashboard-state';
-import { Event, Task, TaskStatus } from '@/lib/types';
-import { isTaskOverdue } from '@/lib/event-utils';
-import { RoleWorkspaceFrame } from './RoleWorkspaceFrame';
+import { RoleWorkspaceFrame, type WorkspaceTab } from './RoleWorkspaceFrame';
 import { Card } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Input';
-import { IncidentDesk } from '@/components/incidents/IncidentDesk';
+import { Button } from '@/components/ui/Button';
 
-const tabs = [
-  { id: 'work', label: 'My Work' },
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'incidents', label: 'Incident Desk' },
-  { id: 'updates', label: 'Event Updates' },
+type Workspace = {
+  user: { id: string; name: string; email: string };
+  serverNow: number;
+  assignments: Array<{ id: string; eventId: string; responsibility: string }>;
+  events: Array<{ id: string; name: string; startAt: string; endAt: string; venue: string | null }>;
+  tasks: Array<{ id: string; eventId: string; eventName: string; title: string; description: string; priority: string; status: string; deadline: string; department: string | null; organizerName: string; createdAt: string; updatedAt: string; comments: Array<{ id: string; user_id: string; user_name: string; content: string; created_at: string }> }>;
+  incidents: Array<{ id: string; eventId: string; eventName: string; referenceNumber: string; title: string; description: string; category: string; urgency: string; status: string; zone?: string; createdAt: string; updatedAt: string }>;
+  tickets: Array<{ id: string; eventId: string; eventName: string; participantId: string; participantName: string; title: string; description: string; category: string; status: string; priority: string; assigneeId: string | null; referenceNumber: string; createdAt: string; updatedAt: string; escalatedAt: string | null }>;
+  notifications: Array<{ id: string; eventId: string | null; type: string; title: string; message: string; read: boolean; createdAt: string }>;
+  profile: { skills: string; zones: string; availability: string; phone: string | null; preferredContactMethod: string | null };
+  capabilities: Array<{ eventId: string; category: string; name: string; proficiency: string; experienceYears: number | null; description: string; verified: boolean }>;
+};
+type IncidentDetail = Workspace['incidents'][number] & { messages: Array<{ id: string; senderName: string; message: string; isInternal: boolean; createdAt: string }>; activities: Array<{ id: string; action: string; details: string; createdAt: string }> };
+type TicketDetail = Workspace['tickets'][number] & { messages: Array<{ id: string; senderName?: string; senderRole: string; content: string; isInternal: boolean; createdAt: string }> };
+
+const NAV: WorkspaceTab[] = [
+  { id: 'overview', label: 'Overview', icon: Activity }, { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
+  { id: 'incidents', label: 'Incident Desk', icon: ShieldAlert }, { id: 'help', label: 'Participant Help', icon: LifeBuoy },
+  { id: 'updates', label: 'Team Updates', icon: Bell }, { id: 'profile', label: 'My Profile', icon: CircleUserRound },
+  { id: 'settings', label: 'Settings', icon: Settings2 },
 ];
-const statusNames: Record<TaskStatus, string> = { pending: 'Pending', 'in-progress': 'In progress', completed: 'Completed', blocked: 'Blocked' };
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+  const payload = await response.json().catch(() => null) as (T & { error?: { message?: string } }) | null;
+  if (!response.ok) throw new Error(payload?.error?.message || `Request failed (${response.status}).`);
+  return payload as T;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return 'No deadline';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+function badge(status: string) { return `inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs capitalize text-[var(--text-primary)] ${status === 'critical' ? 'font-semibold' : ''}`; }
+function overdue(deadline: string, status: string, now: number) { return !!deadline && status !== 'completed' && Date.parse(deadline) < now; }
 
 export function SubOrganizerDashboard() {
   const session = useDemoSession();
-  const { events, teamAssignments, tasks, risks, announcements, completeTask, updateTaskStatus } = useDashboardStore();
-  const assignments = teamAssignments.filter(item => item.accountId === session?.id && item.active);
-  const assignedEventIds = [...new Set(assignments.map(item => item.eventId))];
-  const eventOptions = assignedEventIds.map(id => events.find(event => event.id === id)).filter((item): item is Event => !!item);
-  const [requestedEventId, setRequestedEventId] = useState('');
-  const [tab, setTab] = useState('work');
-  const [requestedAssignmentId, setRequestedAssignmentId] = useState('all');
-  const eventId = eventOptions.some(item => item.id === requestedEventId) ? requestedEventId : eventOptions[0]?.id ?? '';
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState('');
+  const [tab, setTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [taskNotes, setTaskNotes] = useState<Record<string, string>>({});
+  const [incidentDetail, setIncidentDetail] = useState<IncidentDetail | null>(null);
+  const [ticketDetail, setTicketDetail] = useState<TicketDetail | null>(null);
+  const [reply, setReply] = useState('');
+  const [internalNote, setInternalNote] = useState(false);
+  const [availability, setAvailability] = useState('available');
+  const [phone, setPhone] = useState('');
+  const [preferredContactMethod, setPreferredContactMethod] = useState('');
 
-  const event = events.find(item => item.id === eventId);
-  const eventAssignments = assignments.filter(item => item.eventId === eventId);
-  const assignmentFilter = eventAssignments.some(item => item.id === requestedAssignmentId) ? requestedAssignmentId : 'all';
-  const visibleAssignments = eventAssignments.filter(item => assignmentFilter === 'all' || item.id === assignmentFilter);
-  const visibleRoles = new Set(visibleAssignments.flatMap(item => item.responsibilities));
-  const eventTasks = tasks.filter(task => task.eventId === eventId && visibleAssignments.some(item => task.functionName ? task.functionName === item.functionName : visibleRoles.has(task.assignee)));
-  const eventRisks = risks.filter(risk => risk.eventId === eventId && visibleAssignments.length > 0 && (visibleRoles.has(risk.owner) || eventTasks.some(task => task.id === risk.relatedTaskId)) && (risk.status === 'open' || risk.status === 'in-progress'));
-  const eventAnnouncements = announcements.filter(item => item.eventId === eventId);
-  const completedCount = eventTasks.filter(task => task.status === 'completed').length;
-  const overdueCount = eventTasks.filter(task => isTaskOverdue(task.deadline, task.status)).length;
-  const registrationPercent = event && event.targetRegistrations > 0 ? Math.min(100, Math.round(event.currentRegistrations / event.targetRegistrations * 100)) : 0;
-  const assignmentOptions = eventAssignments.map(item => ({ value: item.id, label: `${item.functionName} · ${item.responsibilities.join(', ')}` }));
+  const reload = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    try {
+      const data = await requestJson<Workspace>('/api/sub-organizer/workspace');
+      setWorkspace(data);
+      setAvailability(data.profile.availability);
+      setPhone(data.profile.phone || '');
+      setPreferredContactMethod(data.profile.preferredContactMethod || '');
+      setError('');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Could not load your workspace.');
+    } finally { if (!quiet) setLoading(false); }
+  }, []);
 
-  async function changeStatus(task: Task, status: TaskStatus) {
-    if (status === 'completed') await completeTask(task.id);
-    else await updateTaskStatus(task.id, status);
-  }
+  useEffect(() => {
+    const initial = window.setTimeout(() => void reload(), 0);
+    const timer = window.setInterval(() => void reload(true), 20_000);
+    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+  }, [reload]);
 
-  return <RoleWorkspaceFrame title="Sub-organizer workspace" session={session} tabs={tabs} activeTab={tab} onTabChange={setTab}>
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase text-[var(--action-primary)]">Assigned workspace</p><h1 className="runshow-scroll-heading mt-1 text-3xl font-semibold text-[var(--text-primary)]">My event responsibilities</h1><p className="mt-1 text-sm text-[var(--text-secondary)]">Your view is limited to assigned events, functions, tasks, and relevant blockers.</p></div>{eventOptions.length > 1 && <Select label="Assigned event" value={eventId} onChange={event => setRequestedEventId(event.target.value)} options={eventOptions.map(item => ({ value: item.id, label: item.name }))} className="min-w-56" />}</div>
+  const events = workspace?.events ?? [];
+  const activeEventId = events.some(event => event.id === selectedEvent) ? selectedEvent : events[0]?.id ?? '';
+  const activeEvent = events.find(event => event.id === activeEventId);
+  const eventTasks = useMemo(() => (workspace?.tasks ?? []).filter(task => task.eventId === activeEventId), [workspace, activeEventId]);
+  const eventIncidents = useMemo(() => (workspace?.incidents ?? []).filter(incident => incident.eventId === activeEventId), [workspace, activeEventId]);
+  const eventTickets = useMemo(() => (workspace?.tickets ?? []).filter(ticket => ticket.eventId === activeEventId), [workspace, activeEventId]);
+  const assignedRoles = (workspace?.assignments ?? []).filter(item => item.eventId === activeEventId);
+  const openTasks = eventTasks.filter(task => task.status !== 'completed');
+  const now = workspace?.serverNow ?? 0;
+  const overdueTasks = openTasks.filter(task => overdue(task.deadline, task.status, now));
+  const soonTasks = openTasks.filter(task => !overdue(task.deadline, task.status, now) && Date.parse(task.deadline) <= now + 48 * 60 * 60 * 1000);
+  const activeIncidents = eventIncidents.filter(item => !['resolved', 'closed'].includes(item.status));
+  const activeTickets = eventTickets.filter(item => !['resolved', 'closed'].includes(item.status));
 
-    {!assignments.length ? <Card padding="lg"><h2 className="font-semibold text-[var(--text-primary)]">No active assignments</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">Ask the main organizer to assign you to an event and function.</p></Card> : !event ? <Card padding="lg"><p className="text-sm text-[var(--text-secondary)]">Your assigned event is not available in this workspace.</p></Card> : <>
-      <div className="mb-5 flex flex-wrap gap-2">{eventAssignments.length > 1 && <Select aria-label="Filter by function" value={assignmentFilter} onChange={change => setRequestedAssignmentId(change.target.value)} options={[{ value: 'all', label: 'All assigned functions' }, ...assignmentOptions]} className="min-w-56" />}{eventAssignments.map(item => <span key={item.id} className="rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-primary)]">{item.functionName}</span>)}</div>
-      {tab === 'work' && <div className="space-y-5">
-        <Card padding="md"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-xl font-semibold text-[var(--text-primary)]">{event.name}</h2></div><p className="mt-1 text-sm text-[var(--text-secondary)]">{event.startDate || event.date}{event.endDate && event.endDate !== (event.startDate || event.date) ? ` – ${event.endDate}` : ''}</p></div><p className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><MapPin className="h-4 w-4" aria-hidden="true" />{event.venue || 'Venue pending'}</p></div>
-          <div className="mt-5 grid gap-4 border-t border-[var(--divider)] pt-4 sm:grid-cols-3"><Metric icon={Users} label="Registrations" value={`${event.currentRegistrations} / ${event.targetRegistrations}`} detail={`${Math.max(0, event.targetRegistrations - event.currentRegistrations)} to target`} /><Metric icon={CheckCircle2} label="Assigned tasks" value={`${completedCount} / ${eventTasks.length}`} detail="completed" /><Metric icon={Clock3} label="Deadlines" value={String(overdueCount)} detail="overdue tasks" /></div>
-          <div className="mt-4"><div className="mb-1 flex justify-between text-xs text-[var(--text-secondary)]"><span>Registration progress</span><span>{registrationPercent}%</span></div><div className="h-2 overflow-hidden rounded bg-[var(--neutral-surface)]"><div className="h-full rounded bg-[var(--action-primary)]" style={{ width: `${registrationPercent}%` }} /></div></div>
-        </Card>
-        <div className="grid gap-5 lg:grid-cols-2"><Card padding="md"><h3 className="font-semibold text-[var(--text-primary)]">Function responsibilities</h3><div className="mt-3 space-y-2">{eventAssignments.map(item => <div key={item.id} className="rounded-md border border-[var(--border)] px-3 py-3"><p className="font-medium text-[var(--text-primary)]">{item.functionName}</p><p className="mt-1 text-sm capitalize text-[var(--text-secondary)]">{item.responsibilities.join(' · ')}</p></div>)}</div></Card>
-          <Card padding="md"><h3 className="flex items-center gap-2 font-semibold text-[var(--text-primary)]"><AlertTriangle className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />Relevant blockers</h3><div className="mt-3 space-y-2">{eventRisks.length ? eventRisks.map(risk => <div key={risk.id} className="rounded-md border border-[var(--border)] p-3"><div className="flex justify-between gap-2"><p className="text-sm font-medium text-[var(--text-primary)]">{risk.title}</p><span className="shrink-0 text-xs capitalize text-[var(--text-secondary)]">{risk.severity}</span></div><p className="mt-1 text-sm text-[var(--text-secondary)]">{risk.reason}</p></div>) : <p className="text-sm text-[var(--text-secondary)]">No open blockers are linked to your assignment.</p>}</div></Card></div>
+  const action = async (key: string, work: () => Promise<void>, success?: string) => {
+    if (busy) return;
+    setBusy(key); setError(''); setNotice('');
+    try { await work(); if (success) setNotice(success); await reload(true); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'The change could not be saved.'); }
+    finally { setBusy(''); }
+  };
+
+  const loadIncident = async (id: string) => {
+    setError('');
+    try { setIncidentDetail(await requestJson<IncidentDetail>(`/api/incidents/${encodeURIComponent(id)}`)); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not load incident.'); }
+  };
+  const loadTicket = async (id: string) => {
+    setError('');
+    try { setTicketDetail(await requestJson<TicketDetail>(`/api/support/tickets/${encodeURIComponent(id)}`)); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not load request.'); }
+  };
+
+  const addIncidentUpdate = async () => {
+    if (!incidentDetail || !reply.trim()) return;
+    await action(`incident-message-${incidentDetail.id}`, async () => {
+      await requestJson(`/api/incidents/${incidentDetail.id}/messages`, { method: 'POST', body: JSON.stringify({ message: reply.trim(), isInternal: internalNote, requestId: crypto.randomUUID() }) });
+      setReply(''); await loadIncident(incidentDetail.id);
+    }, internalNote ? 'Internal note saved.' : 'Participant-visible update sent.');
+  };
+  const addTicketUpdate = async () => {
+    if (!ticketDetail || !reply.trim()) return;
+    await action(`ticket-message-${ticketDetail.id}`, async () => {
+      await requestJson(`/api/support/tickets/${ticketDetail.id}`, { method: 'PATCH', body: JSON.stringify({ message: reply.trim(), isInternal: internalNote === true, requestId: crypto.randomUUID() }) });
+      setReply(''); await loadTicket(ticketDetail.id);
+    }, internalNote ? 'Internal note saved.' : 'Participant-visible reply sent.');
+  };
+
+  return <RoleWorkspaceFrame title="Sub-organizer workspace" session={session} tabs={NAV} activeTab={tab} onTabChange={setTab} sidebar>
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div><p className="text-xs font-semibold uppercase tracking-wide text-[var(--action-primary)]">Operations workspace</p><h1 className="runshow-scroll-heading mt-1 text-3xl font-semibold">{NAV.find(item => item.id === tab)?.label ?? 'Overview'}</h1><p className="mt-1 text-sm text-[var(--text-secondary)]">Persisted work for your active event assignments.</p></div>
+      <div className="flex items-center gap-2"><label className="sr-only" htmlFor="sub-event-filter">Assigned event</label><select id="sub-event-filter" value={activeEventId} onChange={event => { setSelectedEvent(event.target.value); setIncidentDetail(null); setTicketDetail(null); }} className="min-h-10 max-w-64 rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-primary)]" disabled={!events.length}><option value="">No assigned events</option>{events.map(event => <option key={event.id} value={event.id}>{event.name}</option>)}</select><Button size="sm" variant="secondary" onClick={() => void reload()} loading={loading}><RefreshCw className="h-4 w-4" aria-hidden="true"/>Refresh</Button></div>
+    </div>
+    {error && <div role="alert" className="mb-4 rounded-lg border border-[var(--danger)]/40 bg-[var(--danger-surface)] p-3 text-sm text-[var(--danger)]">{error}</div>}
+    {notice && <div role="status" className="mb-4 rounded-lg border border-[var(--action-primary)]/40 bg-[var(--success-surface)] p-3 text-sm text-[var(--text-primary)]">{notice}</div>}
+    {loading && !workspace ? <Card><p className="text-sm text-[var(--text-secondary)]">Loading your assigned workspace…</p></Card> : !events.length ? <Card><h2 className="font-semibold">No active event assignments</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">Ask the main organizer to add you to an event. Once assigned, your tasks and operational requests will appear here.</p></Card> : <>
+      {tab === 'overview' && <div className="space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
+          ['Assigned tasks', String(eventTasks.length), `${openTasks.length} still active`, ClipboardList], ['Due soon', String(soonTasks.length), 'Next 48 hours', CalendarClock], ['Overdue', String(overdueTasks.length), 'Needs attention', Clock3], ['Open incidents / requests', String(activeIncidents.length + activeTickets.length), `${activeIncidents.length} incidents · ${activeTickets.length} help requests`, LifeBuoy],
+        ].map(([label, value, detail, Icon]) => <Card key={String(label)} padding="md"><div className="flex items-start justify-between"><div><p className="text-sm text-[var(--text-secondary)]">{String(label)}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{String(value)}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{String(detail)}</p></div><Icon className="h-5 w-5 text-[var(--action-primary)]" aria-hidden="true"/></div></Card>)}</div>
+        <div className="grid gap-5 xl:grid-cols-2"><Card><div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{activeEvent?.name}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{activeEvent?.venue || 'Venue not recorded'} · {formatDate(activeEvent?.startAt)}</p></div><span className={badge(availability)}>{availability}</span></div><h3 className="mt-5 text-sm font-semibold">Your responsibilities</h3><div className="mt-2 flex flex-wrap gap-2">{assignedRoles.map(item => <span key={item.id} className={badge('')}>{item.responsibility}</span>)}</div><p className="mt-5 text-xs text-[var(--text-muted)]">Profile zones: {workspace?.profile.zones || 'Not provided'}</p></Card>
+          <Card><h2 className="font-semibold">Immediate attention</h2><div className="mt-3 space-y-2">{[...overdueTasks.map(task => ({ key: task.id, title: `Overdue · ${task.title}`, note: `${task.eventName} · due ${formatDate(task.deadline)}`, tab: 'tasks' })), ...activeIncidents.map(incident => ({ key: incident.id, title: `Incident · ${incident.title}`, note: `${incident.referenceNumber} · ${incident.urgency} · ${incident.status}`, tab: 'incidents' })), ...activeTickets.filter(ticket => ticket.escalatedAt).map(ticket => ({ key: ticket.id, title: `Escalated · ${ticket.title}`, note: `${ticket.referenceNumber} · ${ticket.participantName}`, tab: 'help' }))].slice(0, 6).map(item => <button key={item.key} type="button" onClick={() => setTab(item.tab)} className="block w-full rounded-lg border border-[var(--border)] p-3 text-left hover:bg-[var(--surface-elevated)]"><p className="text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{item.note}</p></button>)}{!overdueTasks.length && !activeIncidents.length && !activeTickets.some(ticket => ticket.escalatedAt) && <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-sm text-[var(--text-secondary)]">Nothing currently requires escalation.</p>}</div></Card></div>
       </div>}
 
-      {tab === 'tasks' && <Card padding="md"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-[var(--text-primary)]">Assigned tasks</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Status changes update the shared organizer task list.</p></div><CalendarDays className="h-5 w-5 text-[var(--action-primary)]" aria-hidden="true" /></div><div className="mt-4 space-y-3">{eventTasks.length ? eventTasks.map(task => <article key={task.id} className="rounded-md border border-[var(--border)] p-4"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div className="min-w-0"><h3 className="font-medium text-[var(--text-primary)]">{task.title}</h3><p className="mt-1 text-sm text-[var(--text-secondary)]">{task.description}</p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]"><span>{task.priority} priority</span><span>{task.assignee}</span><span>Due {task.deadline}</span>{isTaskOverdue(task.deadline, task.status) && <span className="font-semibold text-[var(--text-primary)]">Overdue</span>}</div></div><Select aria-label={`Change status for ${task.title}`} value={task.status} onChange={change => void changeStatus(task, change.target.value as TaskStatus)} options={Object.entries(statusNames).map(([value, label]) => ({ value, label }))} className="min-w-36" /></div></article>) : <p className="py-8 text-center text-sm text-[var(--text-secondary)]">No tasks match the selected event function.</p>}</div></Card>}
+      {tab === 'tasks' && <div className="space-y-4">{eventTasks.length ? eventTasks.map(task => <Card key={task.id} padding="md"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold">{task.title}</h2><span className={badge(task.status)}>{task.status.replace('-', ' ')}</span><span className={badge(task.priority)}>{task.priority}</span>{overdue(task.deadline, task.status, now) && <span className="text-xs font-semibold text-[var(--danger)]">Overdue</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{task.description || 'No description provided.'}</p><div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]"><span>{task.eventName}{task.department ? ` · ${task.department}` : ''}</span><span>Assigned by {task.organizerName}</span><span>Due {formatDate(task.deadline)}</span><span>Updated {formatDate(task.updatedAt)}</span></div></div></div>
+          {task.comments.length > 0 && <div className="mt-4 space-y-2 border-t border-[var(--divider)] pt-3">{task.comments.slice(0, 3).map(comment => <p key={comment.id} className="text-xs text-[var(--text-secondary)]"><span className="font-medium text-[var(--text-primary)]">{comment.user_name}:</span> {comment.content}</p>)}</div>}
+          {task.status !== 'completed' && <div className="mt-4 border-t border-[var(--divider)] pt-4"><label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]" htmlFor={`task-note-${task.id}`}>{task.status === 'blocked' ? 'Blocker / progress note' : 'Progress note or completion summary'}</label><textarea id={`task-note-${task.id}`} value={taskNotes[task.id] || ''} onChange={event => setTaskNotes(prev => ({ ...prev, [task.id]: event.target.value }))} rows={2} maxLength={2000} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-card)] p-3 text-sm" placeholder="Record what changed, what is blocked, or what you completed."/><div className="mt-3 flex flex-wrap gap-2">{task.status === 'pending' && <Button size="sm" variant="secondary" disabled={!!busy} onClick={() => void action(`task-${task.id}`, async () => { await requestJson(`/api/tasks/${task.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'in-progress' }) }); }, 'Task started.')}>Accept / Start</Button>}<Button size="sm" variant="secondary" disabled={!!busy || !(taskNotes[task.id] || '').trim()} onClick={() => void action(`task-${task.id}`, async () => { await requestJson(`/api/tasks/${task.id}`, { method: 'PATCH', body: JSON.stringify({ requestHelp: true, progressNote: taskNotes[task.id] || '', requestId: crypto.randomUUID() }) }); setTaskNotes(prev => ({ ...prev, [task.id]: '' })); }, 'Assistance request sent to the organizer.')}>Ask organizer</Button><Button size="sm" variant="secondary" disabled={!!busy} onClick={() => void action(`task-${task.id}`, async () => { await requestJson(`/api/tasks/${task.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'blocked', progressNote: taskNotes[task.id] || '', requestId: crypto.randomUUID() }) }); setTaskNotes(prev => ({ ...prev, [task.id]: '' })); }, 'Blocker sent to the organizer.')}>Mark blocked</Button><Button size="sm" disabled={!!busy} onClick={() => void action(`task-${task.id}`, async () => { await requestJson(`/api/tasks/${task.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'completed', progressNote: taskNotes[task.id] || '', requestId: crypto.randomUUID() }) }); setTaskNotes(prev => ({ ...prev, [task.id]: '' })); }, 'Completion submitted to the organizer.')}> <Check className="h-4 w-4" aria-hidden="true"/>Submit completion</Button></div></div>}</Card>) : <Card><p className="text-sm text-[var(--text-secondary)]">No tasks are assigned to you for this event.</p></Card>}</div>}
 
-      {tab === 'incidents' && <IncidentDesk />}
+      {tab === 'incidents' && <div className="grid gap-4 xl:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.2fr)]"><Card padding="md"><h2 className="font-semibold">Assigned incidents</h2><div className="mt-3 space-y-2">{eventIncidents.map(item => <button key={item.id} onClick={() => void loadIncident(item.id)} className={`w-full rounded-lg border p-3 text-left ${incidentDetail?.id === item.id ? 'border-[var(--action-primary)] bg-[var(--surface-elevated)]' : 'border-[var(--border)]'}`}><div className="flex justify-between gap-2"><span className="text-sm font-medium">{item.referenceNumber}</span><span className="text-xs capitalize">{item.urgency}</span></div><p className="mt-1 text-sm">{item.title}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{item.status} · {item.zone || 'No zone'}</p></button>)}{!eventIncidents.length && <p className="py-5 text-sm text-[var(--text-secondary)]">No incidents are currently assigned to you.</p>}</div></Card>
+        <Card padding="md">{incidentDetail ? <><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">{incidentDetail.referenceNumber} · {incidentDetail.title}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{incidentDetail.category} · {incidentDetail.urgency} · {incidentDetail.zone || 'No zone recorded'}</p></div><span className={badge(incidentDetail.status)}>{incidentDetail.status.replace('_', ' ')}</span></div><p className="mt-3 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{incidentDetail.description}</p><p className="mt-2 text-xs text-[var(--text-muted)]">Reported {formatDate(incidentDetail.createdAt)} · Updated {formatDate(incidentDetail.updatedAt)}</p>
+          <div className="mt-4 flex flex-wrap gap-2">{incidentDetail.status === 'assigned' && <Button size="sm" variant="secondary" disabled={!!busy} onClick={() => void action('incident-status', async () => { await requestJson(`/api/incidents/${incidentDetail.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'acknowledged' }) }); await loadIncident(incidentDetail.id); }, 'Incident acknowledged.')}>Acknowledge</Button>}{['assigned', 'acknowledged', 'reopened', 'waiting_external'].includes(incidentDetail.status) && <Button size="sm" variant="secondary" disabled={!!busy} onClick={() => void action('incident-status', async () => { await requestJson(`/api/incidents/${incidentDetail.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'in_progress' }) }); await loadIncident(incidentDetail.id); }, 'Incident marked in progress.')}>Start response</Button>}{['in_progress', 'waiting_external'].includes(incidentDetail.status) && <Button size="sm" disabled={!!busy || !reply.trim()} onClick={() => void action('incident-status', async () => { await requestJson(`/api/incidents/${incidentDetail.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved', resolutionNotes: reply.trim() }) }); setReply(''); await loadIncident(incidentDetail.id); }, 'Resolution recorded.')}>Resolve with summary</Button>}<Button size="sm" variant="secondary" disabled={!!busy} onClick={() => { const reason = window.prompt('Why does this need organizer attention?'); if (reason?.trim()) void action('incident-escalate', async () => { await requestJson(`/api/incidents/${incidentDetail.id}`, { method: 'PATCH', body: JSON.stringify({ escalate: true, reason: reason.trim(), requestId: crypto.randomUUID() }) }); await loadIncident(incidentDetail.id); }, 'Escalation sent to the organizer.'); }}>Escalate</Button></div>
+          <div className="mt-5 max-h-64 space-y-2 overflow-y-auto border-t border-[var(--divider)] pt-4">{incidentDetail.messages.map(message => <div key={message.id} className="rounded-lg border border-[var(--border)] p-3"><p className="whitespace-pre-wrap text-sm">{message.message}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{message.senderName} · {formatDate(message.createdAt)}{message.isInternal ? ' · Internal note' : ' · Participant-visible'}</p></div>)}</div>
+          <div className="mt-3"><label className="mb-1 block text-xs text-[var(--text-secondary)]" htmlFor="incident-reply">{internalNote ? 'Internal team note' : 'Update visible to participant'}</label><textarea id="incident-reply" value={reply} onChange={event => setReply(event.target.value)} rows={2} maxLength={4000} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-card)] p-3 text-sm"/><div className="mt-2 flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]"><input type="checkbox" checked={internalNote} onChange={event => setInternalNote(event.target.checked)}/>Internal note (not visible to participant)</label><Button size="sm" disabled={!!busy || !reply.trim()} onClick={() => void addIncidentUpdate()}><Send className="h-4 w-4" aria-hidden="true"/>Post update</Button></div></div>
+        </> : <p className="text-sm text-[var(--text-secondary)]">Choose an assigned incident to review its timeline and respond.</p>}</Card></div>}
 
-      {tab === 'updates' && <Card padding="md"><h2 className="font-semibold text-[var(--text-primary)]">Event Updates</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Only updates associated with this assigned event appear here.</p><div className="mt-4 space-y-3">{eventAnnouncements.length ? eventAnnouncements.map(item => <article key={item.id} className="rounded-md border border-[var(--border)] p-4"><h3 className="font-medium text-[var(--text-primary)]">{item.title}</h3><p className="mt-2 text-sm text-[var(--text-secondary)]">{item.message}</p><p className="mt-2 text-xs text-[var(--text-muted)]">{format(parseISO(item.publishedAt), 'MMM d, yyyy · h:mm a')}</p></article>) : <p className="py-8 text-center text-sm text-[var(--text-secondary)]">No event updates have been published.</p>}</div></Card>}
+      {tab === 'help' && <div className="grid gap-4 xl:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.2fr)]"><Card padding="md"><h2 className="font-semibold">Participant requests</h2><p className="mt-1 text-xs text-[var(--text-secondary)]">Requests are limited to your active event assignments.</p><div className="mt-3 space-y-2">{eventTickets.map(item => <button key={item.id} onClick={() => void loadTicket(item.id)} className={`w-full rounded-lg border p-3 text-left ${ticketDetail?.id === item.id ? 'border-[var(--action-primary)] bg-[var(--surface-elevated)]' : 'border-[var(--border)]'}`}><div className="flex justify-between gap-2"><span className="text-sm font-medium">{item.referenceNumber}</span><span className={badge(item.status)}>{item.status.replaceAll('_', ' ')}</span></div><p className="mt-1 text-sm">{item.title}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{item.participantName} · {item.category}</p>{item.escalatedAt && <p className="mt-1 text-xs font-semibold text-[var(--danger)]">Escalated</p>}</button>)}{!eventTickets.length && <p className="py-5 text-sm text-[var(--text-secondary)]">No participant help requests for this event.</p>}</div></Card>
+        <Card padding="md">{ticketDetail ? <><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">{ticketDetail.referenceNumber} · {ticketDetail.title}</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">{ticketDetail.participantName} · {ticketDetail.category} · {ticketDetail.priority}</p></div><span className={badge(ticketDetail.status)}>{ticketDetail.status.replaceAll('_', ' ')}</span></div><p className="mt-3 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{ticketDetail.description}</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={!!busy} onClick={() => void action('ticket-ack', async () => { await requestJson(`/api/support/tickets/${ticketDetail.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'acknowledged', assigneeId: workspace?.user.id }) }); await loadTicket(ticketDetail.id); }, 'Request acknowledged and assigned to you.')}>Acknowledge / take</Button>{ticketDetail.status !== 'resolved' && ticketDetail.status !== 'closed' && <select aria-label="Update request status" value={ticketDetail.status} onChange={event => void action('ticket-status', async () => { await requestJson(`/api/support/tickets/${ticketDetail.id}`, { method: 'PATCH', body: JSON.stringify({ status: event.target.value }) }); await loadTicket(ticketDetail.id); }, 'Request status updated.')} className="min-h-9 rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 text-xs">{['open','acknowledged','in_progress','waiting_for_participant','resolved','closed'].map(status => <option key={status} value={status}>{status.replaceAll('_',' ')}</option>)}</select>}<Button size="sm" variant="secondary" disabled={!!busy || !!ticketDetail.escalatedAt} onClick={() => void action('ticket-escalate', async () => { await requestJson(`/api/support/tickets/${ticketDetail.id}`, { method: 'PATCH', body: JSON.stringify({ escalate: true, message: 'Escalation requested by responder.' }) }); await loadTicket(ticketDetail.id); }, 'Request escalated to the event organizer.')}>Escalate to organizer</Button></div>
+          <div className="mt-4 max-h-64 space-y-2 overflow-y-auto border-t border-[var(--divider)] pt-4">{ticketDetail.messages.map(message => <article key={message.id} className="rounded-lg border border-[var(--border)] p-3"><p className="whitespace-pre-wrap text-sm">{message.content}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{message.senderName || message.senderRole} · {formatDate(message.createdAt)}{message.isInternal ? ' · Internal note' : ' · Participant-visible'}</p></article>)}</div><div className="mt-3"><label htmlFor="ticket-reply" className="mb-1 block text-xs text-[var(--text-secondary)]">{internalNote ? 'Internal note' : 'Participant-visible reply'}</label><textarea id="ticket-reply" value={reply} onChange={event => setReply(event.target.value)} rows={2} maxLength={4000} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-card)] p-3 text-sm"/><div className="mt-2 flex justify-between gap-3"><label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]"><input type="checkbox" checked={internalNote} onChange={event => setInternalNote(event.target.checked)}/>Internal only</label><Button size="sm" disabled={!!busy || !reply.trim()} onClick={() => void addTicketUpdate()}><Send className="h-4 w-4" aria-hidden="true"/>Send</Button></div></div></> : <p className="text-sm text-[var(--text-secondary)]">Select a participant request to review its history and respond.</p>}</Card></div>}
+
+      {tab === 'updates' && <div className="space-y-3">{workspace?.notifications.length ? workspace.notifications.map(item => <Card key={item.id} padding="md"><div className="flex gap-3"><Bell className="mt-0.5 h-4 w-4 shrink-0 text-[var(--action-primary)]" aria-hidden="true"/><div><p className="font-medium">{item.title}</p><p className="mt-1 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{item.message}</p><p className="mt-2 text-xs text-[var(--text-muted)]">{formatDate(item.createdAt)}</p></div></div></Card>) : <Card><p className="text-sm text-[var(--text-secondary)]">No persisted team updates or notifications yet. New assignments and incident escalations appear here.</p></Card>}</div>}
+
+      {tab === 'profile' && <div className="grid gap-4 md:grid-cols-2"><Card><div className="flex items-center gap-3"><CircleUserRound className="h-8 w-8 text-[var(--action-primary)]" aria-hidden="true"/><div><h2 className="font-semibold">{workspace?.user.name}</h2><p className="text-sm text-[var(--text-secondary)]">Sub-organizer · {workspace?.user.email}</p></div></div><dl className="mt-5 space-y-3 text-sm"><div><dt className="text-xs text-[var(--text-muted)]">Phone</dt><dd>{workspace?.profile.phone || 'Not provided'}</dd></div><div><dt className="text-xs text-[var(--text-muted)]">Preferred contact</dt><dd className="capitalize">{workspace?.profile.preferredContactMethod || 'Not specified'}</dd></div><div><dt className="text-xs text-[var(--text-muted)]">Assigned zones</dt><dd>{workspace?.profile.zones || 'Not specified'}</dd></div><div><dt className="text-xs text-[var(--text-muted)]">Current availability</dt><dd className="capitalize">{availability}</dd></div><div><dt className="text-xs text-[var(--text-muted)]">Assigned responsibilities</dt><dd>{assignedRoles.map(item => item.responsibility).join(' · ') || 'None'}</dd></div></dl></Card><Card><h2 className="font-semibold">Verified capabilities</h2><div className="mt-3 space-y-2">{(workspace?.capabilities ?? []).filter(item => item.eventId === activeEventId).map(item => <div key={`${item.category}:${item.name}`} className="rounded-lg border border-[var(--border)] p-3"><div className="flex justify-between gap-2"><p className="font-medium">{item.name}</p><span className={badge(item.proficiency)}>{item.verified ? 'Verified' : 'Unverified'}</span></div><p className="mt-1 text-xs capitalize text-[var(--text-secondary)]">{item.category.replaceAll('_',' ')} · {item.proficiency}{item.experienceYears !== null ? ` · ${item.experienceYears} years` : ''}</p>{item.description && <p className="mt-1 text-sm text-[var(--text-secondary)]">{item.description}</p>}</div>)}{!workspace?.capabilities.some(item => item.eventId === activeEventId) && <p className="text-sm text-[var(--text-secondary)]">No capabilities have been recorded for this event.</p>}</div></Card></div>}
+
+      {tab === 'profile' && <Card><h2 className="font-semibold">Update contact details</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">These details are shared only with authorized event staff.</p><form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); void action('profile-contact', async () => { await requestJson('/api/sub-organizer/workspace', { method: 'PATCH', body: JSON.stringify({ phone, preferredContactMethod }) }); }, 'Contact details updated.'); }}><label className="min-w-48 flex-1 text-xs text-[var(--text-secondary)]">Phone<input value={phone} onChange={event => setPhone(event.target.value)} maxLength={32} className="mt-1 min-h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 text-sm" placeholder="Optional"/></label><label className="min-w-44 text-xs text-[var(--text-secondary)]">Preferred contact<select value={preferredContactMethod} onChange={event => setPreferredContactMethod(event.target.value)} className="mt-1 min-h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 text-sm"><option value="">No preference</option><option value="email">Email</option><option value="phone">Phone</option><option value="sms">SMS</option></select></label><Button type="submit" size="sm" variant="secondary" disabled={!!busy}>Save contact details</Button></form></Card>}
+
+      {tab === 'settings' && <Card><div className="flex items-start gap-3"><Settings2 className="h-5 w-5 text-[var(--action-primary)]" aria-hidden="true"/><div><h2 className="font-semibold">Availability</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Availability is shared with authorized event organizers for workload planning.</p><select value={availability} onChange={event => { const next = event.target.value; setAvailability(next); void action('availability', async () => { await requestJson('/api/sub-organizer/workspace', { method: 'PATCH', body: JSON.stringify({ availability: next }) }); }, 'Availability updated.'); }} className="mt-4 min-h-10 rounded-lg border border-[var(--border)] bg-[var(--surface-card)] px-3 text-sm"><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></div></div><p className="mt-5 flex items-center gap-2 text-xs text-[var(--text-muted)]"><MapPin className="h-3.5 w-3.5" aria-hidden="true"/>Assigned zones are maintained by the event organizer in Team & Responders.</p></Card>}
     </>}
+    <p className="mt-6 text-xs text-[var(--text-muted)]">Workspace refreshes every 20 seconds. Updates are stored in RUNSHOW SQLite and access is checked by authenticated server APIs.</p>
   </RoleWorkspaceFrame>;
-}
-
-function Metric({ icon: Icon, label, value, detail }: { icon: typeof Users; label: string; value: string; detail: string }) {
-  return <div><div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]"><Icon className="h-4 w-4" aria-hidden="true" />{label}</div><p className="mt-1 text-lg font-semibold tabular-nums text-[var(--text-primary)]">{value}</p><p className="text-xs text-[var(--text-secondary)]">{detail}</p></div>;
 }
