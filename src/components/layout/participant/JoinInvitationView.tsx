@@ -48,17 +48,20 @@ export function JoinInvitationView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const session = useDemoSession();
-  const codeFromUrl = searchParams.get('code');
+  const codeFromUrl = searchParams.get('code') || searchParams.get('invite');
   const [code, setCode] = useState(codeFromUrl || '');
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [event, setEvent] = useState<Event | null>(null);
   const [status, setStatus] = useState<InvitationStatus>('valid');
   const [message, setMessage] = useState('');
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [existingStatus, setExistingStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [requireApproval, setRequireApproval] = useState(false);
+  const [ticketNumber, setTicketNumber] = useState<string | null>(null);
 
   useEffect(() => {
     if (codeFromUrl) {
@@ -74,17 +77,20 @@ export function JoinInvitationView() {
     setInvitation(null);
     setEvent(null);
     setAlreadyRegistered(false);
+    setExistingStatus(null);
 
     try {
-      const res = await fetch(`/api/join/${invitationCode}`, { headers: { 'Content-Type': 'application/json' } });
+      const res = await fetch(`/api/join/${encodeURIComponent(invitationCode)}`, { headers: { 'Content-Type': 'application/json' } });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Invalid invitation');
+      if (!res.ok) throw new Error(data.message || 'Invalid invitation code or link');
 
       setInvitation(data.invitation);
       setEvent(data.event);
       setStatus(data.status);
       setMessage(data.message);
       setAlreadyRegistered(data.alreadyRegistered);
+      setExistingStatus(data.existingStatus || null);
+      setRequireApproval(Boolean(data.event?.requireApproval || data.invitation?.requireApproval));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to validate invitation');
       setStatus('invalid');
@@ -95,15 +101,17 @@ export function JoinInvitationView() {
 
   const handleValidate = () => {
     if (!code.trim()) {
-      setError('Please enter an invitation code');
+      setError('Please enter an invitation code or link token');
       return;
     }
-    router.push(`/join?code=${encodeURIComponent(code.trim())}`);
+    const target = code.trim().length >= 24 ? `invite=${encodeURIComponent(code.trim())}` : `code=${encodeURIComponent(code.trim())}`;
+    router.push(`/participant/join?${target}`);
   };
 
   const handleJoin = async () => {
     if (!session) {
-      router.push('/login');
+      const currentPath = `/participant/join?${code.trim().length >= 24 ? 'invite' : 'code'}=${encodeURIComponent(code.trim())}`;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
     if (!code.trim() || status !== 'valid') return;
@@ -113,7 +121,7 @@ export function JoinInvitationView() {
     setSuccess(null);
 
     try {
-      const res = await fetch(`/api/join/${code}`, {
+      const res = await fetch(`/api/join/${encodeURIComponent(code)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -121,9 +129,10 @@ export function JoinInvitationView() {
       if (!res.ok) throw new Error(data.message || 'Failed to join event');
 
       setSuccess(data.message);
+      setTicketNumber(data.ticket?.ticketNumber || null);
       setTimeout(() => {
         router.push('/participant/dashboard?tab=events');
-      }, 2000);
+      }, 2500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join event');
     } finally {
@@ -190,15 +199,23 @@ export function JoinInvitationView() {
                   <h2 className="text-xl font-bold text-[var(--text-primary)] truncate">{event.name}</h2>
                   <Badge variant={event.format === 'virtual' ? 'info' : event.format === 'hybrid' ? 'warning' : 'success'} className="text-xs capitalize">{event.format}</Badge>
                   {event.type && <Badge variant="outline" className="text-xs">{event.type}</Badge>}
+                  {requireApproval && <Badge variant="warning" className="text-xs">Approval Required</Badge>}
                 </div>
                 <p className="text-sm text-[var(--text-secondary)] line-clamp-2">{event.audience || 'No description available'}</p>
               </div>
               {canJoin && (
                 <Button size="lg" onClick={handleJoin} disabled={joining} loading={joining} className="shrink-0">
-                  {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Join Event'}
+                  {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : requireApproval ? 'Request to Join' : 'Join Event'}
                 </Button>
               )}
             </div>
+            {success && (
+              <div className="mb-4 p-3 rounded-lg border border-[var(--border)] bg-[var(--success-surface)] text-sm text-[var(--action-primary)] flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                <span>{success}</span>
+              </div>
+            )}
+            {ticketNumber && <div className="mb-4 rounded-lg border border-[var(--action-primary)]/50 bg-[var(--success-surface)] p-3 text-sm"><span className="text-[var(--text-secondary)]">Ticket number: </span><strong className="font-mono text-[var(--text-primary)]">{ticketNumber}</strong></div>}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow icon={<CalendarDays className="h-4 w-4" />} label="Date" value={formatDateRange(event.startDate, event.endDate)} />

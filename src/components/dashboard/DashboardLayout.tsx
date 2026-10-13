@@ -7,9 +7,11 @@ import { KPICards, EventReadinessIndicator } from '@/components/dashboard/KPICar
 import { CriticalRisksSummary } from '@/components/dashboard/CriticalRisksSummary';
 import { PartnerOverview } from '@/components/dashboard/PartnerOverview';
 import { RegistrationTrendChart, OutreachConversionChart } from '@/components/charts/RegistrationChart';
+import { EventIntelligencePanel } from '@/components/dashboard/EventIntelligencePanel';
 import { RiskCentre } from '@/components/risks/RiskCentre';
 import { Recommendations } from '@/components/recommendations/Recommendations';
 import { Tasks } from '@/components/tasks/Tasks';
+import { MyTodoView } from '@/components/dashboard/MyTodoView';
 import { TaskDrawerContent } from '@/components/tasks/TaskDrawer';
 import { EventSetupWizard } from '@/components/event-setup/EventSetupWizard';
 import { useDashboardStore } from '@/lib/dashboard-state';
@@ -27,6 +29,7 @@ import { IncidentDesk } from '@/components/incidents/IncidentDesk';
 import { ParticipantHelpCentre } from '@/components/participant/ParticipantHelpCentre';
 import { IncidentAnalytics } from '@/components/incidents/IncidentAnalytics';
 import { TeamDirectory } from '@/components/team/TeamDirectory';
+import { InvitationManagementView } from '@/components/invitations/InvitationManagementView';
 
 // Views that are only appropriate for participant context and should never be
 // the default landing view for the organizer dashboard.
@@ -39,10 +42,12 @@ const VIEW_COMPONENTS = {
   calendar: () => <CalendarView />,
   'event-health': () => <EventHealthView />,
   tasks: () => <Tasks />,
+  'my-todo': () => <MyTodoView />,
   settings: () => <SettingsView />,
   recommendations: () => <Recommendations />,
   partners: () => <PartnerOverview />,
   incidents: () => <IncidentDesk />,
+  invitations: () => <InvitationManagementView />,
   'help-centre': () => <ParticipantHelpCentre />,
   team: () => <TeamDirectory />,
   operations: () => (
@@ -65,6 +70,7 @@ function DashboardOverview() {
   return (
     <div className="space-y-6">
       <DashboardOverviewSummary />
+      <EventIntelligencePanel />
       {/* Incident Intelligence — real-time analytics from persisted incidents */}
       <IncidentAnalytics />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -90,10 +96,12 @@ const VIEW_TITLES: Record<keyof typeof VIEW_COMPONENTS, string> = {
   calendar: 'Calendar',
   'event-health': 'Event Health',
   tasks: 'Tasks',
+  'my-todo': 'My To-Do',
   settings: 'Settings',
   recommendations: 'Recommendations',
   partners: 'Partners',
   incidents: 'Incident Desk',
+  invitations: 'Invitations & Access',
   'help-centre': 'Help Centre',
   team: 'Team & Responders',
   operations: 'Operations',

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarDays, MapPin, MonitorPlay, Users, RadioTower, TicketCheck, ShieldCheck, ClipboardList } from 'lucide-react';
 import { format, isValid, parseISO, differenceInDays } from 'date-fns';
-import { useDemoSession } from '@/lib/demo-auth';
+import { isUsingServerAuth, useDemoSession } from '@/lib/demo-auth';
 import { useDashboardStore } from '@/lib/dashboard-state';
 import { getEventStatus } from '@/lib/event-utils';
 import { Card } from '@/components/ui/Card';
@@ -16,8 +16,41 @@ const eventStatusBadgeVariants = { past: 'neutral' as const, active: 'success' a
 export function ParticipantEventsView() {
   const session = useDemoSession();
   const { events, participantEvents, announcements } = useDashboardStore();
-  const links = participantEvents.filter(link => link.accountId === session?.id);
-  const myEvents = links.map(link => ({ link, event: events.find(item => item.id === link.eventId) })).filter((item): item is { link: typeof links[number]; event: NonNullable<typeof item.event> } => !!item.event);
+  const [serverEvents, setServerEvents] = useState<typeof events>([]);
+  const [serverLinks, setServerLinks] = useState<typeof participantEvents>([]);
+  useEffect(() => {
+    if (!isUsingServerAuth() || !session) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/events', { credentials: 'include' });
+        if (!response.ok) throw new Error('Unable to load your events.');
+        const loadedEvents = await response.json();
+        const registrations = await Promise.all((loadedEvents as Array<{ id: string }>).map(async item => {
+          const registrationResponse = await fetch(`/api/events/${item.id}/registration`, { credentials: 'include' });
+          if (!registrationResponse.ok) return null;
+          const payload = await registrationResponse.json();
+          return payload.registration ? { eventId: item.id, registration: payload.registration, ticket: payload.ticket } : null;
+        }));
+        if (cancelled) return;
+        setServerEvents(loadedEvents);
+        setServerLinks(registrations.filter(Boolean).map(item => ({
+          accountId: session.id,
+          eventId: item!.eventId,
+          registrationStatus: item!.registration.status === 'confirmed' ? 'registered' : 'invited',
+          createdAt: item!.registration.registeredAt,
+          referenceNumber: item!.registration.referenceNumber,
+          ticketNumber: item!.ticket?.ticketNumber,
+        })));
+      } catch {
+        if (!cancelled) { setServerEvents([]); setServerLinks([]); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session]);
+  const activeEvents = isUsingServerAuth() ? serverEvents : events;
+  const links = isUsingServerAuth() ? serverLinks : participantEvents.filter(link => link.accountId === session?.id);
+  const myEvents = links.map(link => ({ link, event: activeEvents.find(item => item.id === link.eventId) })).filter((item): item is { link: typeof links[number]; event: NonNullable<typeof item.event> } => !!item.event);
   const [selectedEventId, setSelectedEventId] = useState('');
 
   const selected = myEvents.find(item => item.event.id === selectedEventId) ?? myEvents[0];
@@ -102,7 +135,7 @@ export function ParticipantEventsView() {
               <ShieldCheck className="h-5 w-5 text-[var(--action-primary)]" aria-hidden="true" />
               <div>
                 <p className="text-xs text-[var(--text-secondary)]">Reference ID</p>
-                <p className="font-medium text-[var(--text-primary)] font-mono text-sm">{selected?.link.eventId.slice(0, 12).toUpperCase()}-{selected?.link.accountId?.slice(0, 8).toUpperCase() || 'N/A'}</p>
+                <p className="font-medium text-[var(--text-primary)] font-mono text-sm">{selected?.link.referenceNumber || 'Pending'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -114,6 +147,12 @@ export function ParticipantEventsView() {
             </div>
           </div>
         </div>
+
+        {selected?.link.ticketNumber && registrationStatus === 'registered' && (
+          <div className="mt-4 rounded-lg border border-[var(--action-primary)]/50 bg-[var(--success-surface)] p-4">
+            <div className="flex items-center gap-3"><TicketCheck className="h-5 w-5 text-[var(--action-primary)]" aria-hidden="true" /><div><p className="text-xs uppercase tracking-wide text-[var(--action-primary)]">Event ticket</p><p className="font-mono font-semibold text-[var(--text-primary)]">{selected.link.ticketNumber}</p></div></div>
+          </div>
+        )}
 
         {/* Next Upcoming Session */}
         {nextSession && (

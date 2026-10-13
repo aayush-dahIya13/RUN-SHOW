@@ -146,6 +146,7 @@ function PlanPreview({ plan, onPlanChange, onEditSection }: { plan: EventPlan; o
           <SummaryItem label="Location" value={plan.eventDraft.format === 'virtual' ? plan.eventDraft.meetingUrl || plan.eventDraft.joiningInstructions : plan.eventDraft.venue} />
           <SummaryItem label="Audience" value={`${plan.eventDraft.audience} · ${plan.eventDraft.expectedAttendance.toLocaleString()} expected`} />
           <SummaryItem label="Registration and capacity" value={`${plan.eventDraft.targetRegistrations.toLocaleString()} target${plan.eventDraft.participantCapacity ? ` · ${plan.eventDraft.participantCapacity.toLocaleString()} capacity` : ''}`} />
+          <SummaryItem label="Participant Access" value={`${plan.eventDraft.joiningEnabled !== false ? `Open (${plan.eventDraft.invitationAccessMode || 'both'})` : 'Disabled'}${plan.eventDraft.requireApproval ? ' · Approval required' : ''}`} />
         </div>
         <div className="mt-4 flex flex-wrap gap-2"><Button type="button" size="sm" variant="ghost" onClick={() => onEditSection(0)}>Edit basics</Button><Button type="button" size="sm" variant="ghost" onClick={() => onEditSection(1)}>Edit timing</Button><Button type="button" size="sm" variant="ghost" onClick={() => onEditSection(2)}>Edit audience</Button><Button type="button" size="sm" variant="ghost" onClick={() => onEditSection(3)}>Edit operations</Button></div>
         {(!plan.eventDraft.participantCapacity || (!plan.eventDraft.meetingUrl && plan.eventDraft.format !== 'in-person')) && <p className="mt-4 rounded-md border border-[var(--accent)]/40 bg-[var(--accent-muted)] px-3 py-2 text-xs text-[var(--text-secondary)]">Some optional setup details are still missing. You can create the event now and complete them later.</p>}
@@ -355,14 +356,83 @@ export function EventSetupWizard() {
             )}
 
             {step === 2 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Audience" value={form.audience} onChange={(event) => updateForm('audience', event.target.value)} error={errors.audience} placeholder="Students, developers, founders, sponsors" />
-                <Input label="Expected attendance" type="number" min={0} step={1} value={form.expectedAttendance} onChange={(event) => updateForm('expectedAttendance', numberValue(event.target.value))} error={errors.expectedAttendance} helperText="Planning estimate, not registrations." />
-                <Input label="Target registrations" type="number" min={1} value={form.targetRegistrations} onChange={(event) => updateForm('targetRegistrations', numberValue(event.target.value))} error={errors.targetRegistrations} />
-                <Input label="Maximum capacity" type="number" min={1} value={form.participantCapacity ?? ''} onChange={event => updateForm('participantCapacity', event.target.value ? numberValue(event.target.value) : undefined)} error={errors.participantCapacity} helperText="Separate from expected attendance and registration target." />
-                <Input label="Recorded registrations" type="number" min={0} value={form.currentRegistrations} onChange={(event) => updateForm('currentRegistrations', numberValue(event.target.value))} error={errors.currentRegistrations} helperText="Use 0 when registration has not opened." />
-                <Input label="Expected partners" type="number" min={0} value={form.expectedPartners} onChange={(event) => updateForm('expectedPartners', numberValue(event.target.value))} error={errors.expectedPartners} />
-                <div className="md:col-span-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 text-sm text-[var(--text-secondary)]">Planning summary: {form.expectedAttendance.toLocaleString()} expected · {form.targetRegistrations.toLocaleString()} registration target · {form.participantCapacity ? `${form.participantCapacity.toLocaleString()} maximum capacity` : 'capacity not set'}</div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input label="Audience" value={form.audience} onChange={(event) => updateForm('audience', event.target.value)} error={errors.audience} placeholder="Students, developers, founders, sponsors" />
+                  <Input label="Expected attendance" type="number" min={0} step={1} value={form.expectedAttendance} onChange={(event) => updateForm('expectedAttendance', numberValue(event.target.value))} error={errors.expectedAttendance} helperText="Planning estimate, not registrations." />
+                  <Input label="Target registrations" type="number" min={1} value={form.targetRegistrations} onChange={(event) => updateForm('targetRegistrations', numberValue(event.target.value))} error={errors.targetRegistrations} />
+                  <Input label="Maximum capacity" type="number" min={1} value={form.participantCapacity ?? ''} onChange={event => updateForm('participantCapacity', event.target.value ? numberValue(event.target.value) : undefined)} error={errors.participantCapacity} helperText="Separate from expected attendance and registration target." />
+                  <Input label="Recorded registrations" type="number" min={0} value={form.currentRegistrations} onChange={(event) => updateForm('currentRegistrations', numberValue(event.target.value))} error={errors.currentRegistrations} helperText="Use 0 when registration has not opened." />
+                  <Input label="Expected partners" type="number" min={0} value={form.expectedPartners} onChange={(event) => updateForm('expectedPartners', numberValue(event.target.value))} error={errors.expectedPartners} />
+                  <div className="md:col-span-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3 text-sm text-[var(--text-secondary)]">Planning summary: {form.expectedAttendance.toLocaleString()} expected · {form.targetRegistrations.toLocaleString()} registration target · {form.participantCapacity ? `${form.participantCapacity.toLocaleString()} maximum capacity` : 'capacity not set'}</div>
+                </div>
+
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4 space-y-4">
+                  <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-[var(--text-primary)]">Participant Access & Invitations</h3>
+                      <p className="text-xs text-[var(--text-secondary)]">Configure how participants discover and join this event.</p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-[var(--text-primary)]">
+                      <input
+                        type="checkbox"
+                        checked={form.joiningEnabled ?? true}
+                        onChange={(e) => updateForm('joiningEnabled', e.target.checked)}
+                        className="rounded border-[var(--border)] text-[var(--action-primary)] focus:ring-[var(--action-primary)]"
+                      />
+                      Enable Participant Joining
+                    </label>
+                  </div>
+
+                  {(form.joiningEnabled ?? true) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      <Select
+                        label="Invitation Access Mode"
+                        value={form.invitationAccessMode ?? 'both'}
+                        onChange={(e) => updateForm('invitationAccessMode', e.target.value as 'link' | 'code' | 'both')}
+                        options={[
+                          { value: 'both', label: 'Both Link and Code' },
+                          { value: 'link', label: 'Direct Link Only' },
+                          { value: 'code', label: 'Invitation Code Only' },
+                        ]}
+                      />
+                      <Input
+                        label="Invitation Expiry (Optional)"
+                        type="datetime-local"
+                        value={form.invitationExpiry ?? ''}
+                        onChange={(e) => updateForm('invitationExpiry', e.target.value)}
+                        helperText="Leaves link active until event starts if blank."
+                      />
+                      <Input
+                        label="Per-Invite Usage Limit (Optional)"
+                        type="number"
+                        min={1}
+                        value={form.invitationMaxUses ?? ''}
+                        onChange={(e) => updateForm('invitationMaxUses', e.target.value ? numberValue(e.target.value) : undefined)}
+                        placeholder="Unlimited if empty"
+                        helperText="Limits how many participants can join using this specific invite."
+                      />
+                      <Input
+                        label="Eligibility Restrictions (Optional)"
+                        value={form.eligibilityRequirements ?? ''}
+                        onChange={(e) => updateForm('eligibilityRequirements', e.target.value)}
+                        placeholder="e.g. University students, hackathon alumni"
+                        helperText="Displayed to participants prior to confirming join."
+                      />
+                      <div className="md:col-span-2 flex items-center gap-2 pt-1">
+                        <label className="flex items-center gap-2 cursor-pointer text-sm text-[var(--text-primary)]">
+                          <input
+                            type="checkbox"
+                            checked={form.requireApproval ?? false}
+                            onChange={(e) => updateForm('requireApproval', e.target.checked)}
+                            className="rounded border-[var(--border)] text-[var(--action-primary)] focus:ring-[var(--action-primary)]"
+                          />
+                          Require Organizer Approval before participant registration is confirmed
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

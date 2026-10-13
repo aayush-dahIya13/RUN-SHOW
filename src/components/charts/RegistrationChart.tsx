@@ -1,22 +1,19 @@
 'use client';
 
-import { BarChart3, TrendingUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { useDashboardStore } from '@/lib/dashboard-state';
 
-export function RegistrationTrendChart() {
-  return <EmptyChart title="Registration Trend" icon={TrendingUp} message="Registration history is not available for this event yet." />;
+type Analytics={stats:{registrations:{confirmed:number;pending:number;cancelled:number;waitlisted:number;target:number;series:Array<{date:string;registrations:number}>};outreach:{invitationsGenerated:number;registrationsAttributed:number;confirmedRegistrationsAttributed:number;sources:Array<{source:string;campaign:string;generated:number;attributedRegistrations:number;confirmedRegistrations:number;attributedPerGeneratedInvitation:number}>}}};
+export function RegistrationTrendChart(){
+ const event=useDashboardStore(state=>state.event);const [days,setDays]=useState(30);const [data,setData]=useState<Analytics|null>(null);const [error,setError]=useState('');
+ useEffect(()=>{let active=true;if(!event?.id)return;fetch(`/api/events/${encodeURIComponent(event.id)}/intelligence?days=${days}`,{cache:'no-store'}).then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.error?.message||'Analytics unavailable');if(active){setData(body);setError('');}}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Analytics unavailable');});return()=>{active=false;};},[event?.id,days]);
+ return <Card variant="glass" padding="none" className="min-h-72"><CardHeader className="flex-row items-center justify-between p-6 pb-0"><CardTitle>Registration Trend</CardTitle><label className="sr-only" htmlFor="registration-range">Registration history range</label><select id="registration-range" className="rounded-md border border-[var(--divider)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--text-primary)]" value={days} onChange={e=>setDays(Number(e.target.value))}><option value={7}>7 days</option><option value={30}>30 days</option><option value={90}>90 days</option></select></CardHeader><CardContent className="p-6 pt-4">{error?<p role="alert" className="text-sm text-[var(--danger)]">{error}</p>:!data?<p className="text-sm text-[var(--text-secondary)]">Loading registration records…</p>:<><div className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--text-secondary)]"><span>Confirmed: {data.stats.registrations.confirmed}</span><span>Pending: {data.stats.registrations.pending}</span><span>Waitlisted: {data.stats.registrations.waitlisted}</span><span>Cancelled: {data.stats.registrations.cancelled}</span><span>Target: {data.stats.registrations.target||'not set'}</span></div>{data.stats.registrations.series.some(x=>x.registrations>0)?<div className="h-56" role="img" aria-label={`Registration counts by creation date for the last ${days} days`}><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.stats.registrations.series}><CartesianGrid strokeDasharray="3 3" stroke="var(--divider)"/><XAxis dataKey="date" tick={{fontSize:10,fill:'var(--text-muted)'}} tickFormatter={value=>value.slice(5)}/><YAxis allowDecimals={false} tick={{fontSize:10,fill:'var(--text-muted)'}}/><Tooltip labelFormatter={value=>`Created ${value}`}/><Area type="monotone" dataKey="registrations" stroke="var(--action-primary)" fill="var(--action-primary)" fillOpacity={0.18} isAnimationActive={false}/></AreaChart></ResponsiveContainer></div>:<p className="flex h-48 items-center justify-center text-center text-sm text-[var(--text-secondary)]">No non-cancelled registrations were created in this range. This chart groups by registration creation time, not event date.</p>}</>}</CardContent></Card>;
 }
-
-export function OutreachConversionChart() {
-  return <EmptyChart title="Outreach Conversion" icon={BarChart3} message="Campaign performance will appear here when recorded." />;
+export function OutreachConversionChart(){
+ const event=useDashboardStore(state=>state.event);const [data,setData]=useState<Analytics|null>(null);
+ useEffect(()=>{let active=true;if(!event?.id)return;fetch(`/api/events/${encodeURIComponent(event.id)}/intelligence?days=30`,{cache:'no-store'}).then(r=>r.json()).then(body=>{if(active&&body.stats)setData(body);}).catch(()=>{});return()=>{active=false;};},[event?.id]);
+ return <Card variant="glass" padding="none" className="min-h-72"><CardHeader className="p-6 pb-0"><CardTitle>Outreach Conversion</CardTitle></CardHeader><CardContent className="p-6">{!data?<p className="text-sm text-[var(--text-secondary)]">Loading invitation attribution…</p>:<><div className="grid grid-cols-2 gap-3"><Metric label="Invitations created" value={data.stats.outreach.invitationsGenerated}/><Metric label="Attributed registrations" value={data.stats.outreach.registrationsAttributed}/></div><p className="mt-3 text-xs text-[var(--text-muted)]">Creation is not delivery; this system has no delivery or link-open telemetry. Ratios below are registrations per generated invitation, not click-through rates.</p>{data.stats.outreach.sources.length?<div className="mt-4 space-y-2">{data.stats.outreach.sources.map(row=><div key={`${row.source}-${row.campaign}`} className="flex items-center justify-between gap-3 border-t border-[var(--divider)] pt-2 text-sm"><span className="min-w-0 truncate text-[var(--text-primary)]">{row.source} · {row.campaign}</span><span className="shrink-0 text-[var(--text-secondary)]">{row.attributedRegistrations} registrations / {row.generated} invites</span></div>)}</div>:<p className="mt-4 text-sm text-[var(--text-secondary)]">No invitation campaigns have been generated. Label the source and campaign when creating an invitation to begin attribution.</p>}</>}</CardContent></Card>;
 }
-
-function EmptyChart({ title, message, icon: Icon }: { title: string; message: string; icon: typeof TrendingUp }) {
-  return <Card variant="glass" padding="none" className="min-h-72">
-    <CardHeader className="p-6 pb-0"><CardTitle>{title}</CardTitle></CardHeader>
-    <CardContent className="flex min-h-56 flex-col items-center justify-center px-6 text-center">
-      <Icon className="h-8 w-8 text-[var(--text-muted)]" aria-hidden="true" />
-      <p className="mt-3 max-w-sm text-sm text-[var(--text-secondary)]">{message}</p>
-    </CardContent>
-  </Card>;
-}
+function Metric({label,value}:{label:string;value:number}){return <div className="rounded-lg border border-[var(--divider)] p-3"><p className="text-xs text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{value}</p></div>;}

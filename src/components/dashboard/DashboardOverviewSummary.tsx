@@ -22,7 +22,15 @@ export function DashboardOverviewSummary() {
       <p className="mt-3 text-sm text-[var(--text-secondary)]">{event.currentRegistrations.toLocaleString()} of {event.targetRegistrations.toLocaleString()} registrations · {registrationGap.toLocaleString()} to target</p>
       <p className="mt-1 text-xs text-[var(--text-muted)]">{event.daysRemaining} days remaining · {getEventStatus(event, now)}</p>
       <div className="mt-4 border-t border-[var(--divider)] pt-3"><p className="mb-2 text-xs font-semibold uppercase text-[var(--text-secondary)]">Upcoming events</p>{upcoming.length ? <div className="space-y-2">{upcoming.map(item => <button key={item.id} type="button" onClick={() => selectEvent(item.id)} className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-[var(--surface-elevated)] focus:outline-none focus:ring-2 focus:ring-[var(--focus)]"><span className="min-w-0 truncate text-sm font-medium text-[var(--text-primary)]">{item.name}</span><span className="shrink-0 text-xs text-[var(--text-secondary)]">{eventStart(item) ? format(eventStart(item)!, 'MMM d') : 'Unscheduled'}</span></button>)}</div> : <p className="text-sm text-[var(--text-secondary)]">No upcoming events scheduled.</p>}</div>
-      <Button className="mt-4 w-full" size="sm" onClick={() => setSelectedView('setup')}><Plus className="h-4 w-4" aria-hidden="true" />Create Event</Button>
+      <div className="mt-4 flex gap-2">
+        <Button className="flex-1" size="sm" onClick={() => setSelectedView('setup')}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Create Event
+        </Button>
+        <Button variant="secondary" className="flex-1" size="sm" onClick={() => setSelectedView('invitations')}>
+          Manage Invitations
+        </Button>
+      </div>
     </Card>
 
     <Card padding="md">

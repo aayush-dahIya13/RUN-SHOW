@@ -1,33 +1,17 @@
-import { createHash, randomBytes, scrypt as nodeScrypt, timingSafeEqual } from 'node:crypto';
-import { promisify } from 'node:util';
+import { createHash } from 'node:crypto';
 import { cookies } from 'next/headers';
-import { db, id, nowIso } from './db';
+import { db, id, nowIso, type SqliteDatabase } from './db.ts';
+import {
+  createSession as persistSession,
+  hashPassword,
+  normalizeEmail,
+  publicUser,
+  type ServerUser,
+} from './auth-credentials.ts';
 
-const scrypt = promisify(nodeScrypt);
+export { authenticateUser, hashPassword, normalizeEmail, publicUser, verifyPassword } from './auth-credentials.ts';
+export type { ServerRole, ServerUser } from './auth-credentials.ts';
 export const SESSION_COOKIE = 'runshow_session';
-const SESSION_DAYS = 7;
-
-export type ServerRole = 'organizer' | 'sub_organizer' | 'participant';
-export interface ServerUser { id: string; name: string; email: string; role: ServerRole; status: 'active' | 'inactive' }
-
-export function normalizeEmail(value: string): string { return value.trim().toLowerCase(); }
-export function publicUser(row: Record<string, unknown>): ServerUser {
-  return { id: String(row.id), name: String(row.name), email: String(row.email), role: row.role as ServerRole, status: row.status as 'active' | 'inactive' };
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16);
-  const derived = await scrypt(password, salt, 64) as Buffer;
-  return `scrypt$${salt.toString('hex')}$${derived.toString('hex')}`;
-}
-
-export async function verifyPassword(password: string, encoded: string): Promise<boolean> {
-  const [, saltHex, hashHex] = encoded.split('$');
-  if (!saltHex || !hashHex) return false;
-  const expected = Buffer.from(hashHex, 'hex');
-  const actual = await scrypt(password, Buffer.from(saltHex, 'hex'), expected.length) as Buffer;
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
-}
 
 function sessionDigest(token: string): string { return createHash('sha256').update(token).digest('hex'); }
 
@@ -38,11 +22,8 @@ export async function currentUser(): Promise<ServerUser | null> {
   return row ? publicUser(row) : null;
 }
 
-export async function createSession(userId: string) {
-  const token = randomBytes(32).toString('base64url');
-  const expires = new Date(Date.now() + SESSION_DAYS * 86_400_000).toISOString();
-  db().prepare('INSERT INTO auth_sessions(id,user_id,expires_at,created_at) VALUES(?,?,?,?)').run(sessionDigest(token), userId, expires, nowIso());
-  return { token, expires };
+export async function createSession(userId: string, database: SqliteDatabase = db()) {
+  return persistSession(userId, database);
 }
 
 export async function deleteCurrentSession() {
