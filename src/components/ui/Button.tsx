@@ -12,17 +12,17 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = '', variant = 'primary', size = 'md', loading = false, disabled, children, ...props }, ref) => {
     const reduceMotion = useReducedMotion();
-    const baseStyles = 'inline-flex cursor-pointer items-center justify-center font-medium rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus)] focus:ring-offset-2 focus:ring-offset-[var(--page-bg)] disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyles = 'inline-flex min-h-10 cursor-pointer items-center justify-center rounded-full font-medium shadow-[inset_0_1px_0_rgb(255_255_255_/_0.08)] transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--page-bg)] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none';
     
     const variants = {
-      primary: 'bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)] hover:bg-[var(--action-primary-fill-hover)] active:bg-[var(--action-primary-fill-active)]',
-      secondary: 'bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--neutral-surface)] active:bg-[var(--divider)]',
-      ghost: 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] active:bg-[var(--neutral-surface)]',
-      danger: 'bg-[var(--danger-surface)] text-[var(--danger)] border border-[var(--accent)] hover:bg-[var(--accent-muted)] active:bg-[var(--neutral-surface)]',
+      primary: 'border border-white/10 bg-[var(--action-primary-fill)] text-[var(--action-primary-foreground)] shadow-sm hover:border-white/20 hover:bg-[var(--action-primary-fill-hover)] active:bg-[var(--action-primary-fill-active)]',
+      secondary: 'border border-[var(--border)] bg-[var(--surface-elevated)]/85 text-[var(--text-primary)] backdrop-blur-sm hover:border-[var(--action-primary)]/40 hover:bg-[var(--neutral-surface)] active:bg-[var(--divider)]',
+      ghost: 'border border-transparent bg-transparent text-[var(--text-secondary)] shadow-none hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] active:bg-[var(--neutral-surface)]',
+      danger: 'border border-[var(--danger)]/30 bg-[var(--danger-surface)]/85 text-[var(--danger)] backdrop-blur-sm hover:border-[var(--danger)]/50 hover:bg-[var(--accent-muted)] active:bg-[var(--neutral-surface)]',
     };
 
     const sizes = {
-      sm: 'px-3 py-1.5 text-sm gap-1.5',
+      sm: 'min-h-9 px-3 py-1.5 text-sm gap-1.5',
       md: 'px-4 py-2 text-sm gap-2',
       lg: 'px-6 py-3 text-base gap-2',
     };

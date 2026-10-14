@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Users,
   Search,
-  Plus,
   RefreshCw,
   X,
   CheckCircle2,
@@ -18,6 +17,7 @@ import {
   Copy,
   Pencil,
   Save,
+  Link2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useDashboardStore } from '@/lib/dashboard-state';
@@ -99,7 +99,7 @@ function MemberCard({ member, onSelect }: { member: TeamMember; onSelect: (m: Te
 
 // ─── Profile Slide-Over ───────────────────────────────────────────────────────
 
-function MemberProfile({ member, eventId, onClose, onMemberUpdated }: { member: TeamMember; eventId: string; onClose: () => void; onMemberUpdated: (member: TeamMember) => void }) {
+function MemberProfile({ member, eventId, onClose, onMemberUpdated, onMemberRemoved }: { member: TeamMember; eventId: string; onClose: () => void; onMemberUpdated: (member: TeamMember) => void; onMemberRemoved: (userId: string) => void }) {
   const setSelectedView = useDashboardStore(s => s.setSelectedView);
   const [copied, setCopied] = useState('');
   const [contactEditing, setContactEditing] = useState(false);
@@ -108,6 +108,8 @@ function MemberProfile({ member, eventId, onClose, onMemberUpdated }: { member: 
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState('');
   const [contactSaved, setContactSaved] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState('');
   const phone = member.phone?.trim() || '';
   const validPhone = phone.length <= 32 && /^[+()\d.\-\s]+$/.test(phone) && phone.replace(/\D/g, '').length >= 7;
 
@@ -135,6 +137,18 @@ function MemberProfile({ member, eventId, onClose, onMemberUpdated }: { member: 
     } finally {
       setContactSaving(false);
     }
+  }
+
+  async function removeEventAccess() {
+    if (!window.confirm(`Deactivate ${member.name}'s access to this event? Their account and history will be preserved.`)) return;
+    setRemoving(true); setRemoveError('');
+    try {
+      const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/team/${encodeURIComponent(member.id)}`, { method: 'DELETE', credentials: 'include' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error?.message || 'Could not deactivate event access.');
+      onMemberRemoved(member.id);
+    } catch (cause) { setRemoveError(cause instanceof Error ? cause.message : 'Could not deactivate event access.'); }
+    finally { setRemoving(false); }
   }
 
   return (
@@ -233,6 +247,8 @@ function MemberProfile({ member, eventId, onClose, onMemberUpdated }: { member: 
             {member.performance.recentActivity.length ? <ul className="space-y-2">{member.performance.recentActivity.map((activity, index) => <li key={`${activity.incidentReference}-${activity.createdAt}-${index}`} className="rounded-md border border-[var(--divider)] px-3 py-2"><p className="text-xs font-medium capitalize text-[var(--text-primary)]">{activity.action.replaceAll('_', ' ')} · {activity.incidentReference}</p><p className="mt-0.5 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{activity.details}</p><time className="mt-1 block text-[10px] text-[var(--text-muted)]" dateTime={activity.createdAt}>{new Date(activity.createdAt).toLocaleString()}</time></li>)}</ul> : <p className="rounded-lg border border-dashed border-[var(--divider)] px-3 py-4 text-xs text-[var(--text-muted)]">No recent incident activity recorded.</p>}
           </section>
 
+          {member.role === 'sub_organizer' && <section className="border-t border-[var(--divider)] pt-4"><p className="mb-2 text-xs text-[var(--text-muted)]">This deactivates this event membership only. The user account and operational history remain.</p>{removeError&&<p className="mb-2 text-xs text-[var(--danger)]" role="alert">{removeError}</p>}<Button variant="danger" size="sm" className="w-full" disabled={removing} onClick={()=>void removeEventAccess()}>{removing?'Deactivating…':'Remove event access'}</Button></section>}
+
         </div>
       </div>
     </div>
@@ -241,7 +257,7 @@ function MemberProfile({ member, eventId, onClose, onMemberUpdated }: { member: 
 
 // ─── Add Sub-Organizer Wizard ─────────────────────────────────────────────────
 
-interface WizardProps {
+export interface WizardProps {
   eventId: string;
   onClose: () => void;
   onCreated: () => void;
@@ -249,11 +265,12 @@ interface WizardProps {
 
 type WizardStep = 1 | 2 | 3 | 4;
 
-function AddSubOrganizerWizard({ eventId, onClose, onCreated }: WizardProps) {
+export function AddSubOrganizerWizard({ eventId, onClose, onCreated }: WizardProps) {
   const [step, setStep] = useState<WizardStep>(1);
   const [form, setForm] = useState({
     name: '', email: '', password: '', confirmPassword: '',
     responsibility: '', skills: '', zones: '', phone: '', preferredContactMethod: '' as '' | 'email' | 'phone' | 'sms',
+    permittedResponsibilities: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -295,6 +312,7 @@ function AddSubOrganizerWizard({ eventId, onClose, onCreated }: WizardProps) {
         zones: form.zones.trim() || 'all',
         phone: form.phone.trim(),
         preferredContactMethod: form.preferredContactMethod,
+        permittedResponsibilities: form.permittedResponsibilities.split(',').map(item => item.trim()).filter(Boolean),
       });
       setStep(4);
     } catch (e) {
@@ -388,6 +406,10 @@ function AddSubOrganizerWizard({ eventId, onClose, onCreated }: WizardProps) {
                   {errors.responsibility && <p className="mt-1 text-xs text-red-400">{errors.responsibility}</p>}
                 </div>
                 <div>
+                  <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Permitted Responsibilities <span className="text-[var(--text-muted)]">(comma-separated)</span></label>
+                  <input className={fieldCls('permittedResponsibilities')} value={form.permittedResponsibilities} onChange={e => update('permittedResponsibilities', e.target.value)} placeholder="e.g. Check-in, participant support" />
+                </div>
+                <div>
                   <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Skills <span className="text-[var(--text-muted)]">(comma-separated)</span></label>
                   <input className={fieldCls('skills')} value={form.skills} onChange={e => update('skills', e.target.value)} placeholder="e.g. transport, logistics, first-aid" />
                   <p className="mt-1 text-xs text-[var(--text-muted)]">Used for incident responder recommendations.</p>
@@ -415,6 +437,7 @@ function AddSubOrganizerWizard({ eventId, onClose, onCreated }: WizardProps) {
                   { label: 'Email', value: form.email },
                   { label: 'Password', value: '••••••••' },
                   { label: 'Responsibility', value: form.responsibility },
+                  { label: 'Permitted duties', value: form.permittedResponsibilities || 'Not specified' },
                   { label: 'Phone', value: form.phone || 'Not provided' },
                   { label: 'Preferred contact', value: form.preferredContactMethod || 'Not specified' },
                   { label: 'Skills', value: form.skills || 'operations' },
@@ -462,10 +485,28 @@ function AddSubOrganizerWizard({ eventId, onClose, onCreated }: WizardProps) {
   );
 }
 
+function TeamInvitationDialog({ eventId, onClose }: { eventId: string; onClose: () => void }) {
+  const [email,setEmail]=useState(''); const [responsibility,setResponsibility]=useState(''); const [duties,setDuties]=useState(''); const [zones,setZones]=useState(''); const [approval,setApproval]=useState(false);
+  const [url,setUrl]=useState(''); const [rows,setRows]=useState<Array<{id:string;intendedEmail:string|null;responsibility:string;status:string;expiresAt:string;acceptedBy:string|null}>>([]); const [error,setError]=useState(''); const [busy,setBusy]=useState(false); const [copied,setCopied]=useState(false);
+  const load=useCallback(async()=>{try{const r=await fetch(`/api/events/${encodeURIComponent(eventId)}/team-invitations`,{credentials:'include'});const b=await r.json();if(!r.ok)throw new Error(b?.error?.message||'Could not load invitations.');setRows(b);}catch(e){setError(e instanceof Error?e.message:'Could not load invitations.');}},[eventId]);
+  useEffect(()=>{void load();},[load]);
+  async function create(){setBusy(true);setError('');try{const r=await fetch(`/api/events/${encodeURIComponent(eventId)}/team-invitations`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim()||undefined,responsibility,responsibilities:duties.split(',').map(x=>x.trim()).filter(Boolean),zones,requiresApproval:approval,expiresInDays:7})});const b=await r.json();if(!r.ok)throw new Error(b?.error?.message||'Could not create invitation.');setUrl(b.invitationUrl);await load();}catch(e){setError(e instanceof Error?e.message:'Could not create invitation.');}finally{setBusy(false);}}
+  async function action(id:string,action:'revoke'|'approve'){setError('');try{const r=await fetch(`/api/events/${encodeURIComponent(eventId)}/team-invitations/${encodeURIComponent(id)}`,{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});const b=await r.json();if(!r.ok)throw new Error(b?.error?.message||'Could not update invitation.');await load();}catch(e){setError(e instanceof Error?e.message:'Could not update invitation.');}}
+  const input='mt-1 w-full rounded-lg border border-[var(--divider)] bg-[var(--surface-elevated)] p-2.5 text-sm text-[var(--text-primary)]';
+  return <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Invite sub-organizer"><section className="w-full max-w-xl rounded-2xl border border-[var(--divider)] bg-[var(--sidebar-bg)] p-5 shadow-2xl sm:p-6"><div className="flex items-start justify-between"><div><h2 className="font-semibold text-[var(--text-primary)]">Invite Sub-Organizer</h2><p className="mt-1 text-xs text-[var(--text-secondary)]">No email is sent; share the link securely. Invitees create their own password.</p></div><button onClick={onClose} aria-label="Close"><X className="h-5 w-5"/></button></div>
+    {error&&<p role="alert" className="mt-3 rounded border border-red-500/30 p-2 text-sm text-red-400">{error}</p>}
+    <div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-xs text-[var(--text-secondary)]">Invite email (optional)<input className={input} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></label><label className="text-xs text-[var(--text-secondary)]">Responsibility *<input className={input} value={responsibility} onChange={e=>setResponsibility(e.target.value)} placeholder="Transport coordinator"/></label><label className="text-xs text-[var(--text-secondary)] sm:col-span-2">Permitted responsibilities<input className={input} value={duties} onChange={e=>setDuties(e.target.value)} placeholder="Transport, participant support"/></label><label className="text-xs text-[var(--text-secondary)] sm:col-span-2">Assigned zones<input className={input} value={zones} onChange={e=>setZones(e.target.value)} placeholder="Gate A, Main Hall"/></label></div>
+    <label className="mt-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" checked={approval} onChange={e=>setApproval(e.target.checked)}/> Require organizer approval after acceptance</label>
+    <Button className="mt-4" disabled={busy||!responsibility.trim()} onClick={()=>void create()}><Link2 className="h-4 w-4"/>{busy?'Creating…':'Generate invitation link'}</Button>
+    {url&&<div className="mt-3 rounded-lg border border-[var(--divider)] p-3"><p className="text-xs text-[var(--text-muted)]">The bearer link is only shown now and is not stored in plaintext.</p><div className="mt-2 flex gap-2"><input readOnly value={url} className="min-w-0 flex-1 rounded border border-[var(--divider)] bg-[var(--surface-elevated)] px-2 text-xs text-[var(--text-primary)]"/><Button variant="secondary" size="sm" onClick={async()=>{await navigator.clipboard.writeText(url);setCopied(true);}}>{copied?'Copied':'Copy'}</Button></div></div>}
+    <h3 className="mt-6 text-sm font-semibold text-[var(--text-primary)]">Invitation status</h3><div className="mt-2 max-h-48 space-y-2 overflow-auto">{rows.length===0?<p className="text-xs text-[var(--text-muted)]">No team invitations yet.</p>:rows.map(row=><div key={row.id} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--divider)] p-2.5"><div className="min-w-0"><p className="truncate text-xs font-medium text-[var(--text-primary)]">{row.intendedEmail||'Open invitation'} · {row.responsibility}</p><p className="text-[11px] capitalize text-[var(--text-muted)]">{row.status.replaceAll('_',' ')} · expires {new Date(row.expiresAt).toLocaleDateString()}{row.acceptedBy?` · ${row.acceptedBy}`:''}</p></div>{row.status==='pending_approval'?<Button size="sm" onClick={()=>void action(row.id,'approve')}>Approve</Button>:row.status==='pending'?<Button variant="secondary" size="sm" onClick={()=>void action(row.id,'revoke')}>Revoke</Button>:null}</div>)}</div>
+  </section></div>;
+}
+
 // ─── Main TeamDirectory Component ─────────────────────────────────────────────
 
 export function TeamDirectory() {
-  const { event } = useDashboardStore();
+  const { event, setSelectedView } = useDashboardStore();
   const eventId = event?.id;
   const isUsingApi = useDashboardStore(s => s.isUsingApi);
 
@@ -475,7 +516,7 @@ export function TeamDirectory() {
   const [search, setSearch] = useState('');
   const [availFilter, setAvailFilter] = useState<'all' | 'available' | 'busy' | 'offline' | 'unknown'>('all');
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [showWizard, setShowWizard] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
 
   const load = useCallback(async () => {
     if (!eventId) return;
@@ -524,10 +565,7 @@ export function TeamDirectory() {
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
           {isUsingApi && (
-            <Button size="sm" onClick={() => setShowWizard(true)}>
-              <Plus className="h-4 w-4" />
-              Add Sub-Organizer
-            </Button>
+            <><Button variant="secondary" size="sm" onClick={() => setShowInvite(true)}><Link2 className="h-4 w-4" />Invite</Button><Button size="sm" onClick={() => setSelectedView('sub-organizers')}>Manage Sub-Organizers</Button></>
           )}
         </div>
       </div>
@@ -588,12 +626,6 @@ export function TeamDirectory() {
             <p className="mt-3 text-sm font-medium text-[var(--text-secondary)]">
               {members.length === 0 ? 'No team members assigned to this event yet.' : 'No members match your search.'}
             </p>
-            {members.length === 0 && isUsingApi && (
-              <Button className="mt-4" onClick={() => setShowWizard(true)}>
-                <Plus className="h-4 w-4" />
-                Add First Sub-Organizer
-              </Button>
-            )}
           </CardContent>
         </Card>
       ) : (
@@ -611,17 +643,11 @@ export function TeamDirectory() {
           eventId={event?.id ?? ''}
           onClose={() => setSelectedMember(null)}
           onMemberUpdated={updated => { setSelectedMember(updated); setMembers(current => current.map(member => member.id === updated.id ? updated : member)); }}
+          onMemberRemoved={userId => { setMembers(current => current.filter(member => member.id !== userId)); setSelectedMember(null); }}
         />
       )}
 
-      {/* Add Sub-Organizer Wizard */}
-      {showWizard && event?.id && (
-        <AddSubOrganizerWizard
-          eventId={event.id}
-          onClose={() => setShowWizard(false)}
-          onCreated={() => { void load(); }}
-        />
-      )}
+      {showInvite && event?.id && <TeamInvitationDialog eventId={event.id} onClose={()=>setShowInvite(false)} />}
     </div>
   );
 }

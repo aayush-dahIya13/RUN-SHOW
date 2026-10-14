@@ -145,11 +145,26 @@ export const api = {
     return DEMO_TASKS;
   },
 
+  async getTask(taskId: string): Promise<Task & { eventName?: string; linkedIncident?: { id: string; referenceNumber: string; title: string } | null }> {
+    if (USE_API) return fetchJson(`/tasks/${taskId}`);
+    const task = DEMO_TASKS.find(item => item.id === taskId);
+    if (!task) throw new Error('Task not found');
+    return { ...task };
+  },
+
   async updateTaskStatus(taskId: string, status: TaskStatus): Promise<Task> {
     if (USE_API) return fetchJson<Task>(`/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify({ status }) });
     const task = DEMO_TASKS.find(t => t.id === taskId);
     if (!task) throw new Error('Task not found');
     return { ...task, status };
+  },
+
+  async updateTask(taskId: string, updates: Omit<Partial<Task>, 'ownerId'> & { ownerId?: string | null; progressNote?: string; requestId?: string }): Promise<Task> {
+    if (USE_API) return fetchJson<Task>(`/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(updates) });
+    const existing = DEMO_TASKS.find(task => task.id === taskId);
+    if (!existing) throw new Error('Task not found');
+    Object.assign(existing, updates);
+    return { ...existing };
   },
 
   async completeTask(taskId: string, outcome?: { registrationsAdded: number; source: 'simulated' | 'actual' }): Promise<{
@@ -220,7 +235,7 @@ export const api = {
     return event;
   },
 
-  async createTask(eventId: string, task: Partial<Task>): Promise<Task> {
+  async createTask(eventId: string, task: Omit<Partial<Task>, 'ownerId'> & { ownerId?: string | null; requestId?: string }): Promise<Task> {
     if (USE_API) {
       return fetchJson<Task>(`/events/${eventId}/tasks`, {
         method: 'POST',
@@ -367,6 +382,7 @@ export const api = {
   async createSubOrganizer(payload: {
     name: string; email: string; password: string;
     responsibility: string; eventId: string;
+    permittedResponsibilities?: string[];
     skills?: string; zones?: string;
     phone?: string; preferredContactMethod?: 'email' | 'phone' | 'sms' | '';
   }): Promise<{ user: { id: string; name: string; email: string }; assignment: { id: string } }> {
