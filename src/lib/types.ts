@@ -221,6 +221,11 @@ export interface Task {
   functionName?: string;
   ownerId?: string;
   ownerName?: string;
+  creatorId?: string;
+  assignedAt?: string;
+  completedAt?: string;
+  relatedIncidentId?: string;
+  activities?: TaskActivity[];
   createdAt?: string;
   updatedAt?: string;
   comments?: TaskComment[];
@@ -261,7 +266,7 @@ export interface OutreachDataPoint {
 
 export interface DashboardState {
   selectedRole: Role;
-  selectedView: 'home' | 'setup' | 'overview' | 'calendar' | 'event-health' | 'settings' | 'recommendations' | 'tasks' | 'my-todo' | 'partners' | 'operations' | 'incidents' | 'help-centre' | 'team' | 'invitations';
+  selectedView: 'home' | 'setup' | 'overview' | 'calendar' | 'event-health' | 'settings' | 'recommendations' | 'tasks' | 'my-todo' | 'partners' | 'operations' | 'incidents' | 'help-centre' | 'team' | 'invitations' | 'sub-organizers';
   risks: Risk[];
   recommendations: Recommendation[];
   tasks: Task[];
@@ -472,6 +477,18 @@ export interface TaskComment {
   userId: string;
   userName: string;
   content: string;
+  createdAt: string;
+}
+
+export interface TaskActivity {
+  id: string;
+  taskId: string;
+  actorId: string;
+  actorName: string;
+  action: string;
+  details: string;
+  fromStatus: string | null;
+  toStatus: string | null;
   createdAt: string;
 }
 
