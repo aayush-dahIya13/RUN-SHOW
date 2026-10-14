@@ -93,9 +93,13 @@ export async function authenticateServer(email: string, password: string): Promi
 }
 
 export async function createServerParticipant(name: string, email: string, password: string): Promise<DemoSession> {
-  const response = await fetch('/api/auth/signup', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
+  return createServerAccount(name, email, password, 'participant');
+}
+
+export async function createServerAccount(name: string, email: string, password: string, role: DemoRole, teamInvitationToken?: string): Promise<DemoSession> {
+  const response = await fetch('/api/auth/signup', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, role, teamInvitationToken }) });
   const payload = await response.json().catch(() => null) as { user?: DemoSession; error?: { message?: string } } | null;
-  if (!response.ok || !payload?.user) throw new Error(payload?.error?.message || 'Unable to create your participant account.');
+  if (!response.ok || !payload?.user) throw new Error(payload?.error?.message || 'Unable to create your account.');
   serverSession = payload.user;
   notifySessionListeners();
   return payload.user;
