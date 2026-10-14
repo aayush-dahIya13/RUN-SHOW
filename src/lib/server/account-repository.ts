@@ -19,6 +19,7 @@ export interface CreateSubOrganizerInput {
   zones: string;
   phone: string | null;
   preferredContactMethod: string | null;
+  permittedResponsibilities?: string[];
 }
 
 export async function createSubOrganizerAccount(database: SqliteDatabase, input: CreateSubOrganizerInput) {
@@ -38,9 +39,9 @@ export async function createSubOrganizerAccount(database: SqliteDatabase, input:
     `).run(userId, input.name, email, passwordHash, now, now);
 
     database.prepare(`
-      INSERT INTO team_assignments (id, event_id, user_id, responsibility, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 'active', ?, ?)
-    `).run(assignmentId, input.eventId, userId, input.responsibility, now, now);
+      INSERT INTO team_assignments (id, event_id, user_id, responsibility, status, permissions_json, zones, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?)
+    `).run(assignmentId, input.eventId, userId, input.responsibility, JSON.stringify(input.permittedResponsibilities ?? []), input.zones, now, now);
 
     upsertResponderProfile(database, userId, input.skills, input.zones, 'available', input.phone, input.preferredContactMethod, now);
     database.exec('COMMIT');
