@@ -48,7 +48,8 @@ export async function authenticateUser(database: SqliteDatabase, emailInput: str
   const legacyPassword = /^[a-f\d]{64}$/i.test(encoded);
   if (legacyPassword && user.role !== 'sub_organizer') return null;
   if (!(await verifyPassword(password, encoded))) return null;
-  if (user.role === 'sub_organizer' && !database.prepare("SELECT 1 FROM team_assignments WHERE user_id=? AND status='active' LIMIT 1").get(String(user.id))) return null;
+  if (user.role === 'sub_organizer' && !database.prepare(`SELECT 1 FROM team_assignments WHERE user_id=? AND status='active'
+    UNION ALL SELECT 1 FROM team_invitations WHERE accepted_by=? AND status='pending_approval' LIMIT 1`).get(String(user.id), String(user.id))) return null;
 
   if (legacyPassword) {
     const upgradedHash = await hashPassword(password);
