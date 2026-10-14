@@ -6,7 +6,7 @@ import { createSubOrganizerAccount, ExistingAccountError } from '../src/lib/serv
 import { authenticateUser, createSession, hashPassword } from '../src/lib/server/auth-credentials.ts';
 import { initDbSchema } from '../src/lib/server/db.ts';
 import { destinationForRole } from '../src/lib/role-routing.ts';
-import { canReadEventTeam } from '../src/lib/server/team-repository.ts';
+import { canReadEventTeam, listEventSubOrganizers } from '../src/lib/server/team-repository.ts';
 
 function fixture() {
   const database = new DatabaseSync(':memory:');
@@ -26,6 +26,7 @@ const subOrganizerInput = {
   name: 'New Sub Organizer', email: '  New.SubOrganizer@GMAIL.COM  ', password: 'Strong-password-42',
   eventId: 'event-auth', responsibility: 'Transport coordination', skills: 'transport', zones: 'Gate 2',
   phone: null, preferredContactMethod: null,
+  permittedResponsibilities: ['Check-in', 'Participant support'],
 };
 
 test('organizer-created sub-organizer persists account and membership, authenticates, and gets a private session', async () => {
@@ -36,16 +37,25 @@ test('organizer-created sub-organizer persists account and membership, authentic
 
     const created = await createSubOrganizerAccount(database, subOrganizerInput);
     const stored = database.prepare('SELECT role,status,password_hash FROM users WHERE id=?').get(created.user.id);
-    const membership = database.prepare('SELECT event_id,status,responsibility FROM team_assignments WHERE user_id=?').get(created.user.id);
+    const membership = database.prepare('SELECT event_id,status,responsibility,permissions_json,zones FROM team_assignments WHERE user_id=?').get(created.user.id);
     assert.deepEqual({ role: stored.role, status: stored.status }, { role: 'sub_organizer', status: 'active' });
     assert.equal(membership.event_id, 'event-auth');
     assert.equal(membership.status, 'active');
     assert.equal(membership.responsibility, subOrganizerInput.responsibility);
+    assert.deepEqual(JSON.parse(membership.permissions_json), subOrganizerInput.permittedResponsibilities);
+    assert.equal(membership.zones, subOrganizerInput.zones);
     assert.match(stored.password_hash, /^scrypt\$/);
     assert.equal(created.user.email, 'new.suborganizer@gmail.com');
     assert.equal(JSON.stringify(created).includes('password_hash'), false);
     assert.equal(canReadEventTeam(database, 'event-auth', created.user.id, created.user.role), true);
     assert.equal(canReadEventTeam(database, 'other-event', created.user.id, created.user.role), false);
+    const managed = listEventSubOrganizers(database, 'event-auth');
+    assert.equal(managed.length, 1);
+    assert.equal(managed[0].accountStatus, 'active');
+    assert.equal(managed[0].membershipStatus, 'active');
+    assert.deepEqual(managed[0].responsibilities, subOrganizerInput.permittedResponsibilities);
+    assert.equal(listEventSubOrganizers(database, 'other-event').length, 0);
+    assert.equal(JSON.stringify(managed).includes('password_hash'), false);
 
     assert.equal(await authenticateUser(database, ' NEW.SUBORGANIZER@gmail.com ', subOrganizerInput.password).then(user => user?.role), 'sub_organizer');
     assert.equal(destinationForRole('sub_organizer'), '/sub-organizer/dashboard');
