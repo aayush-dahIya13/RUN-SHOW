@@ -114,7 +114,7 @@ export function listTeamMembers(database: SqliteDatabase, eventId: string, now: 
     SELECT ta.id AS assignment_id, ta.responsibility, ta.status AS assignment_status,
       u.id, u.name, u.email, u.role,
       COALESCE(rp.availability, 'unknown') AS availability,
-      COALESCE(rp.skills, '') AS skills, CASE WHEN rp.user_id IS NULL THEN '' ELSE rp.zones END AS zones,
+      COALESCE(rp.skills, '') AS skills, CASE WHEN ta.zones IS NOT NULL THEN ta.zones WHEN rp.user_id IS NULL THEN '' ELSE rp.zones END AS zones,
       rp.phone, rp.preferred_contact_method,
       (SELECT COUNT(*) FROM incidents i WHERE i.assigned_responder_id=u.id
         AND i.status NOT IN ('resolved','closed') AND i.event_id=ta.event_id) AS active_incidents
@@ -135,6 +135,33 @@ export function listTeamMembers(database: SqliteDatabase, eventId: string, now: 
       preferred_contact_method: row.preferred_contact_method ? String(row.preferred_contact_method) : null,
       capabilities, performance: performanceFor(database, eventId, userId, now),
       capabilityCategories: CAPABILITY_CATEGORIES,
+    };
+  });
+}
+
+/** Organizer-only account and membership overview; deliberately excludes credential material. */
+export function listEventSubOrganizers(database: SqliteDatabase, eventId: string) {
+  return database.prepare(`
+    SELECT u.id, u.name, u.email, u.status AS account_status,
+      ta.id AS assignment_id, ta.status AS membership_status,
+      ta.responsibility, ta.permissions_json, COALESCE(ta.zones,rp.zones) AS zones,
+      ta.created_at AS assigned_at
+    FROM team_assignments ta
+    JOIN users u ON u.id=ta.user_id
+    LEFT JOIN responder_profiles rp ON rp.user_id=u.id
+    WHERE ta.event_id=? AND u.role='sub_organizer'
+    ORDER BY u.name COLLATE NOCASE, ta.created_at
+  `).all(eventId).map(row => {
+    let responsibilities: string[] = [];
+    try {
+      const parsed: unknown = JSON.parse(String(row.permissions_json ?? '[]'));
+      if (Array.isArray(parsed)) responsibilities = parsed.filter((item): item is string => typeof item === 'string');
+    } catch { /* Legacy or malformed permissions are shown as unavailable, never granted here. */ }
+    return {
+      id: String(row.id), name: String(row.name), email: String(row.email),
+      accountStatus: String(row.account_status), membershipStatus: String(row.membership_status),
+      responsibility: String(row.responsibility), responsibilities,
+      zones: row.zones == null ? null : String(row.zones), assignedAt: String(row.assigned_at),
     };
   });
 }

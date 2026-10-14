@@ -115,6 +115,11 @@ export function initDbSchema(instance: SqliteDatabase) {
         status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in-progress', 'completed', 'blocked')),
         due_at TEXT NOT NULL,
         owner_id TEXT REFERENCES users(id),
+        created_by TEXT REFERENCES users(id),
+        assigned_at TEXT,
+        completed_at TEXT,
+        related_incident_id TEXT REFERENCES incidents(id),
+        request_key TEXT,
         department TEXT,
         related_risk_id TEXT,
         created_at TEXT NOT NULL,
@@ -380,7 +385,8 @@ export function initDbSchema(instance: SqliteDatabase) {
         title TEXT NOT NULL,
         message TEXT NOT NULL,
         read INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        source_key TEXT
       );
       CREATE INDEX IF NOT EXISTS notifications_user_idx ON in_app_notifications(user_id, read, created_at);
 
@@ -393,6 +399,19 @@ export function initDbSchema(instance: SqliteDatabase) {
         created_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS task_comments_task_idx ON task_comments(task_id, created_at);
+      CREATE TABLE IF NOT EXISTS task_activities (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        actor_id TEXT NOT NULL REFERENCES users(id),
+        action TEXT NOT NULL CHECK (action IN ('created','assigned','reassigned','status_changed','progress_update','assistance_requested','blocked','completed','reopened')),
+        details TEXT NOT NULL DEFAULT '',
+        from_status TEXT,
+        to_status TEXT,
+        request_key TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS task_activities_task_idx ON task_activities(task_id, created_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS task_activities_request_unique ON task_activities(task_id,actor_id,request_key) WHERE request_key IS NOT NULL;
       CREATE TABLE IF NOT EXISTS personal_todos (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -414,6 +433,26 @@ export function initDbSchema(instance: SqliteDatabase) {
     if (!exists) instance.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
   };
   ensureColumn('task_comments', 'request_key', 'request_key TEXT');
+  ensureColumn('in_app_notifications', 'source_key', 'source_key TEXT');
+  instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS notifications_source_key_unique ON in_app_notifications(user_id,source_key) WHERE source_key IS NOT NULL');
+  ensureColumn('tasks', 'created_by', 'created_by TEXT REFERENCES users(id)');
+  ensureColumn('tasks', 'assigned_at', 'assigned_at TEXT');
+  ensureColumn('tasks', 'completed_at', 'completed_at TEXT');
+  ensureColumn('tasks', 'related_incident_id', 'related_incident_id TEXT REFERENCES incidents(id)');
+  ensureColumn('tasks', 'request_key', 'request_key TEXT');
+  instance.exec(`CREATE TABLE IF NOT EXISTS task_activities (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    actor_id TEXT NOT NULL REFERENCES users(id),
+    action TEXT NOT NULL CHECK (action IN ('created','assigned','reassigned','status_changed','progress_update','assistance_requested','blocked','completed','reopened')),
+    details TEXT NOT NULL DEFAULT '', from_status TEXT, to_status TEXT, request_key TEXT, created_at TEXT NOT NULL
+  )`);
+  instance.exec('CREATE INDEX IF NOT EXISTS task_activities_task_idx ON task_activities(task_id, created_at)');
+  instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS task_activities_request_unique ON task_activities(task_id,actor_id,request_key) WHERE request_key IS NOT NULL');
+  instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS tasks_creator_request_unique ON tasks(created_by,request_key) WHERE created_by IS NOT NULL AND request_key IS NOT NULL');
+  instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS tasks_related_incident_unique ON tasks(event_id,related_incident_id) WHERE related_incident_id IS NOT NULL');
+  ensureColumn('team_assignments', 'permissions_json', "permissions_json TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn('team_assignments', 'zones', 'zones TEXT');
   instance.exec('CREATE UNIQUE INDEX IF NOT EXISTS task_comments_request_key_unique ON task_comments(task_id,user_id,request_key) WHERE request_key IS NOT NULL');
   ensureColumn('support_tickets', 'escalated_at', 'escalated_at TEXT');
   ensureColumn('support_messages', 'request_key', 'request_key TEXT');
@@ -442,6 +481,32 @@ export function initDbSchema(instance: SqliteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_invitations_event ON invitations(event_id);
     CREATE INDEX IF NOT EXISTS idx_invitations_code ON invitations(code);
     CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
+  `);
+
+  // Separate, role-specific invitation records prevent participant join tokens
+  // from ever being interpreted as team membership credentials.
+  instance.exec(`
+    CREATE TABLE IF NOT EXISTS team_invitations (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      organizer_id TEXT NOT NULL REFERENCES users(id),
+      token_hash TEXT NOT NULL UNIQUE,
+      intended_email TEXT,
+      responsibility TEXT NOT NULL,
+      responsibilities_json TEXT NOT NULL DEFAULT '[]',
+      zones TEXT,
+      requires_approval INTEGER NOT NULL DEFAULT 0 CHECK(requires_approval IN (0,1)),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','pending_approval','declined','expired','revoked')),
+      accepted_by TEXT REFERENCES users(id),
+      accepted_at TEXT,
+      revoked_by TEXT REFERENCES users(id),
+      revoked_at TEXT,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS team_invitations_event_idx ON team_invitations(event_id,status,created_at DESC);
+    CREATE INDEX IF NOT EXISTS team_invitations_expiry_idx ON team_invitations(expires_at,status);
   `);
 
   // Events additions
